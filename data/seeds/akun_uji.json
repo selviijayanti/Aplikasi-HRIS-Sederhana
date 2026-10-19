@@ -1,0 +1,146 @@
+[
+  {
+    "nama": "Rina Kusumawardani",
+    "email": "rina.kusumawardani@karsalintas.test",
+    "peran": "hrd",
+    "divisi": "Human Resources",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Akun utama HRD"
+  },
+  {
+    "nama": "Dimas Pratama",
+    "email": "dimas.pratama@karsalintas.test",
+    "peran": "hrd",
+    "divisi": "Human Resources",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "HRD kedua"
+  },
+  {
+    "nama": "Bayu Setiawan",
+    "email": "bayu.setiawan@karsalintas.test",
+    "peran": "atasan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Atasan Operasional"
+  },
+  {
+    "nama": "Maya Anggraini",
+    "email": "maya.anggraini@karsalintas.test",
+    "peran": "atasan",
+    "divisi": "Penjualan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Akun utama Atasan"
+  },
+  {
+    "nama": "Hendra Gunawan",
+    "email": "hendra.gunawan@karsalintas.test",
+    "peran": "atasan",
+    "divisi": "Keuangan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Siti Nurhaliza",
+    "email": "siti.nurhaliza@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Karyawan, sisa kuota 1"
+  },
+  {
+    "nama": "Agus Salim",
+    "email": "agus.salim@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Andi Wijaya",
+    "email": "andi.wijaya@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Penjualan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Akun utama Karyawan"
+  },
+  {
+    "nama": "Larasati Dewi",
+    "email": "larasati.dewi@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Keuangan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Putri Lestari",
+    "email": "putri.lestari@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Penjualan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Karyawan, sisa kuota 0"
+  },
+  {
+    "nama": "Fajar Nugroho",
+    "email": "fajar.nugroho@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Bambang Hartono",
+    "email": "bambang.hartono@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Keuangan",
+    "kata_sandi": "Latihan#2026",
+    "status": "nonaktif",
+    "catatan": "Akun nonaktif, login harus ditolak"
+  },
+  {
+    "nama": "Wulan Sari",
+    "email": "wulan.sari@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Yoga Permana",
+    "email": "yoga.permana@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Penjualan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": null
+  },
+  {
+    "nama": "Rizky Ramadhan",
+    "email": "rizky.ramadhan@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Operasional Gudang",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Belum 12 bulan bekerja"
+  },
+  {
+    "nama": "Nadia Safitri",
+    "email": "nadia.safitri@karsalintas.test",
+    "peran": "karyawan",
+    "divisi": "Penjualan",
+    "kata_sandi": "Latihan#2026",
+    "status": "aktif",
+    "catatan": "Jatah cuti 0"
+  }
+]

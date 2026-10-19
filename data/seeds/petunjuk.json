@@ -1,0 +1,86 @@
+[
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Bootcamp AI Web Programming · Capstone Project"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": null
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Isi file"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "1. Sheet \"Akun Uji\": daftar akun untuk login. Semua akun memakai kata sandi latihan yang sama: Latihan#2026"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "2. Sheet bernama tabel (divisi, profiles, hari_libur, kuota_cuti, pengajuan_cuti, absensi, slip_gaji, audit_log) mengikuti nama tabel dan kolom di ERD_HRIS.pdf."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "3. Kolom berjudul biru muda dengan akhiran \"(bantu)\" hanya untuk memudahkan membaca. Kolom ini tidak ada di database, jangan diimpor."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "4. Baris berwarna kuning adalah kasus batas yang berguna untuk pengujian (lihat kolom \"kasus_uji (bantu)\")."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": null
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Cara memakai"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "1. Buat akun di Supabase Auth untuk setiap baris di sheet \"Akun Uji\". Setiap akun mendapat id baru dari auth.users."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "2. Ganti kolom id di sheet profiles dengan id dari auth.users yang emailnya sama. Kolom lain yang merujuk karyawan (karyawan_id, manajer_id, disetujui_atasan_oleh, dan seterusnya) ikut diganti. Cara termudah: impor dengan mencocokkan email atau nik_karyawan, atau minta agen AI membuat skrip seed yang mencari id berdasarkan email."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "3. Urutan impor: divisi (manajer_id dikosongkan dulu), profiles, isi manajer_id divisi, hari_libur, kuota_cuti, pengajuan_cuti, absensi, slip_gaji. audit_log boleh tidak diimpor karena akan terisi sendiri saat aplikasi dipakai."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "4. Semua waktu memakai zona WIB (+07:00). Tanggal \"hari ini\" pada data contoh adalah Kamis, 15 Oktober 2026. Bila menguji di tanggal lain, geser semua tanggal dengan selisih yang sama."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "5. Nilai terpakai_hari di kuota_cuti sudah sama dengan jumlah hari cuti tahunan berstatus diajukan, disetujui_atasan, dan disetujui pada tahun 2026."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": null
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Ringkasan data"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Divisi: 4 · Karyawan: 16 (1 nonaktif) · Hari libur: 17 · Pengajuan: 37 · Absensi: 278 baris (21 September sampai 15 Oktober 2026) · Slip gaji: 39 (Agustus dan September terbit, Oktober draf) · Audit log: 23"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": null
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Kasus batas penting"
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Siti Nurhaliza: sisa kuota 1 hari. Uji pengajuan 2 hari (harus ditolak) dan 1 hari (harus diterima), juga dua pengajuan bersamaan."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Putri Lestari: sisa kuota 0 dan punya pengajuan 9 sampai 11 November berstatus disetujui_atasan. Bila HRD menolak, sisa kuota kembali menjadi 3."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Rizky Ramadhan: masuk 2 November 2025, baru berhak cuti tahunan mulai 2 November 2026; jatah 2 hari."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Nadia Safitri: masuk Maret 2026, jatah cuti 0."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Bambang Hartono: akun nonaktif sejak 1 Oktober 2026. Login harus ditolak."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Dimas Pratama (HRD): pengajuan 22 sampai 23 Oktober dihitung 1 hari karena 23 Oktober libur perusahaan; harus diputuskan HRD lain (Rina)."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Bayu Setiawan (Atasan): pengajuannya langsung ke HRD tanpa tahap Atasan."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Absensi 12 Oktober: Andi check-in tepat 08.15.00 (hadir), Siti 08.15.01 (terlambat). Wulan lupa check-out 8 Oktober. Absensi Agus 29 September hasil koreksi HRD."
+  },
+  {
+    "Data Contoh HRIS PT Karsa Lintas Nusantara": "Hari ini (15 Oktober): Putri dan Bayu belum check-in, sehingga tombol check-in masih aktif untuk mereka. Larasati sedang mengajukan sakit 14 sampai 15 Oktober."
+  }
+]

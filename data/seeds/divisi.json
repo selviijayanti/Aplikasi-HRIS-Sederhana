@@ -1,0 +1,26 @@
+[
+  {
+    "id": "a6af4e8a-1b1b-5610-9e53-db2fdaf38100",
+    "nama": "Human Resources",
+    "manajer_id": null,
+    "manajer (bantu)": null
+  },
+  {
+    "id": "8865d249-d46e-5207-bf19-1b9163f5e954",
+    "nama": "Operasional Gudang",
+    "manajer_id": "1533d79b-4814-5d40-a1db-0f4df56eae1e",
+    "manajer (bantu)": "Bayu Setiawan"
+  },
+  {
+    "id": "867481d0-6289-54a1-87db-47bb81db15ef",
+    "nama": "Penjualan",
+    "manajer_id": "9e156b1b-7370-5e67-9dd3-e03340156757",
+    "manajer (bantu)": "Maya Anggraini"
+  },
+  {
+    "id": "400c86ae-d2db-5185-b2d3-db5f60a08649",
+    "nama": "Keuangan",
+    "manajer_id": "ed0f5fa7-63fe-54c3-936e-342f8a31261c",
+    "manajer (bantu)": "Hendra Gunawan"
+  }
+]

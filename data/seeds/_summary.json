@@ -1,0 +1,154 @@
+{
+  "petunjuk": {
+    "original_name": "Petunjuk",
+    "row_count": 28,
+    "columns": [
+      "Data Contoh HRIS PT Karsa Lintas Nusantara"
+    ]
+  },
+  "akun_uji": {
+    "original_name": "Akun Uji",
+    "row_count": 16,
+    "columns": [
+      "nama",
+      "email",
+      "peran",
+      "divisi",
+      "kata_sandi",
+      "status",
+      "catatan"
+    ]
+  },
+  "divisi": {
+    "original_name": "divisi",
+    "row_count": 4,
+    "columns": [
+      "id",
+      "nama",
+      "manajer_id",
+      "manajer (bantu)"
+    ]
+  },
+  "profiles": {
+    "original_name": "profiles",
+    "row_count": 16,
+    "columns": [
+      "id",
+      "nik_karyawan",
+      "nama_lengkap",
+      "email",
+      "nomor_hp",
+      "peran",
+      "divisi_id",
+      "jabatan",
+      "status_kerja",
+      "tanggal_masuk",
+      "aktif",
+      "divisi (bantu)"
+    ]
+  },
+  "hari_libur": {
+    "original_name": "hari_libur",
+    "row_count": 17,
+    "columns": [
+      "tanggal",
+      "keterangan",
+      "jenis"
+    ]
+  },
+  "kuota_cuti": {
+    "original_name": "kuota_cuti",
+    "row_count": 16,
+    "columns": [
+      "id",
+      "karyawan_id",
+      "tahun",
+      "jatah_hari",
+      "terpakai_hari",
+      "nama (bantu)",
+      "sisa (bantu)",
+      "kasus_uji (bantu)"
+    ]
+  },
+  "pengajuan_cuti": {
+    "original_name": "pengajuan_cuti",
+    "row_count": 37,
+    "columns": [
+      "id",
+      "karyawan_id",
+      "jenis",
+      "tanggal_mulai",
+      "tanggal_selesai",
+      "jumlah_hari",
+      "alasan",
+      "lampiran_path",
+      "status",
+      "perlu_atasan",
+      "disetujui_atasan_oleh",
+      "disetujui_atasan_pada",
+      "diputuskan_hrd_oleh",
+      "diputuskan_hrd_pada",
+      "alasan_penolakan",
+      "dibatalkan_oleh",
+      "dibatalkan_pada",
+      "dibuat_pada",
+      "pemohon (bantu)",
+      "atasan (bantu)",
+      "hrd (bantu)",
+      "kasus_uji (bantu)"
+    ]
+  },
+  "absensi": {
+    "original_name": "absensi",
+    "row_count": 278,
+    "columns": [
+      "id",
+      "karyawan_id",
+      "tanggal",
+      "jam_masuk",
+      "jam_pulang",
+      "status",
+      "dikoreksi_oleh",
+      "alasan_koreksi",
+      "nama (bantu)",
+      "divisi (bantu)",
+      "kasus_uji (bantu)"
+    ]
+  },
+  "slip_gaji": {
+    "original_name": "slip_gaji",
+    "row_count": 39,
+    "columns": [
+      "id",
+      "nomor_slip",
+      "karyawan_id",
+      "periode",
+      "gaji_pokok",
+      "tunjangan",
+      "potongan",
+      "total_diterima",
+      "catatan",
+      "status",
+      "dibuat_oleh",
+      "diterbitkan_oleh",
+      "diterbitkan_pada",
+      "dibuat_pada",
+      "nama (bantu)"
+    ]
+  },
+  "audit_log": {
+    "original_name": "audit_log",
+    "row_count": 23,
+    "columns": [
+      "id",
+      "pelaku_id",
+      "aksi",
+      "nama_tabel",
+      "data_id",
+      "nilai_sebelum",
+      "nilai_sesudah",
+      "dibuat_pada",
+      "pelaku (bantu)"
+    ]
+  }
+}

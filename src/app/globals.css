@@ -146,6 +146,53 @@ body {
   margin-top: 0.1rem;
 }
 
+.role-switch-container {
+  margin: 0.625rem 0 0.35rem 0;
+  padding: 0.4rem;
+  background-color: #f3f4f6;
+  border-radius: 6px;
+}
+
+.switch-caption {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.switch-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-role-mini {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.6875rem;
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 120ms ease;
+}
+
+.btn-role-mini:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.btn-role-mini.active {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
 .btn-signout {
   margin-top: 0.35rem;
   background: none;

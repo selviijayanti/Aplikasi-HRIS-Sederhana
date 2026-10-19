@@ -12,7 +12,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, login } = useAuth();
   const [serverTimeFormatted, setServerTimeFormatted] = useState("Kamis, 15 Okt 2026 · Jam server 10.24 WIB");
 
   useEffect(() => {
@@ -142,6 +142,38 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <div className="sidebar-footer">
           <p className="user-display-name">{user.nama_lengkap}</p>
           <p className="user-display-role">{roleLabel} · {divisiLabel}</p>
+
+          {/* Quick Role Switcher untuk Menguji Seluruh Halaman Wireframe 1, 2, 3, 4 */}
+          <div className="role-switch-container">
+            <span className="switch-caption">Ganti Akun Demo:</span>
+            <div className="switch-buttons">
+              <button
+                type="button"
+                onClick={() => login("andi.wijaya@karsalintas.test", "Latihan#2026")}
+                className={`btn-role-mini ${user.peran === "karyawan" ? "active" : ""}`}
+                title="Lihat Tampilan Wireframe 1"
+              >
+                Karyawan (Andi)
+              </button>
+              <button
+                type="button"
+                onClick={() => login("maya.anggraini@karsalintas.test", "Latihan#2026")}
+                className={`btn-role-mini ${user.peran === "atasan" ? "active" : ""}`}
+                title="Lihat Tampilan Wireframe 3 (Persetujuan Cuti)"
+              >
+                Atasan (Maya)
+              </button>
+              <button
+                type="button"
+                onClick={() => login("rina.kusumawardani@karsalintas.test", "Latihan#2026")}
+                className={`btn-role-mini ${user.peran === "hrd" ? "active" : ""}`}
+                title="Lihat Tampilan Wireframe 2 & 4 (Absensi & Laporan)"
+              >
+                HRD (Rina)
+              </button>
+            </div>
+          </div>
+
           <button onClick={logout} className="btn-signout">
             Keluar akun
           </button>

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:firebase": "node scripts/seed-firebase.mjs"
   },
   "dependencies": {
     "firebase": "^13.0.0",

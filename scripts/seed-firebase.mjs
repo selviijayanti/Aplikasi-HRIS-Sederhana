@@ -206,13 +206,13 @@ async function runSeeder() {
     const slipList = readSeed("slip_gaji.json");
     for (const s of slipList) {
       const cleaned = cleanRecord(s);
-      await setDoc(doc(db, "slip_gaji", s.id), cleaned);
+      await setDoc(doc(db, "slip_gaji", String(s.id)), cleaned);
     }
 
     const auditList = readSeed("audit_log.json");
     for (const logItem of auditList) {
       const cleaned = cleanRecord(logItem);
-      await setDoc(doc(db, "audit_log", logItem.id), cleaned);
+      await setDoc(doc(db, "audit_log", String(logItem.id)), cleaned);
     }
     console.log(`  ✓ Berhasil mengimpor ${slipList.length} slip gaji dan ${auditList.length} audit log.`);
 

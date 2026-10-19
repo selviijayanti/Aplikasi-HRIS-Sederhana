@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Fungsi pembantu mengecek autentikasi
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+    }
+    
+    function isHRD() {
+      return isAuthenticated() && getUserData().peran == 'hrd';
+    }
+    
+    function isAtasan() {
+      return isAuthenticated() && getUserData().peran == 'atasan';
+    }
+
+    // 1. Koleksi divisi: Semua akun terdaftar boleh membaca, hanya HRD boleh ubah
+    match /divisi/{divisiId} {
+      allow read: if isAuthenticated();
+      allow write: if isHRD();
+    }
+
+    // 2. Koleksi profiles: HRD boleh kelola semua; Karyawan/Atasan hanya boleh baca
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isHRD();
+    }
+
+    // 3. Koleksi hari_libur: Semua akun boleh baca; hanya HRD boleh ubah (BR-01)
+    match /hari_libur/{tanggal} {
+      allow read: if isAuthenticated();
+      allow write: if isHRD();
+    }
+
+    // 4. Koleksi kuota_cuti: Pemilik boleh baca kuotanya; HRD boleh kelola (BR-04)
+    match /kuota_cuti/{kuotaId} {
+      allow read: if isAuthenticated() && (resource.data.karyawan_id == request.auth.uid || isHRD());
+      allow write: if isHRD() || (isAuthenticated() && request.resource.data.karyawan_id == request.auth.uid);
+    }
+
+    // 5. Koleksi pengajuan_cuti: Atasan & HRD sesuai alur berjenjang (BR-09, BR-10)
+    match /pengajuan_cuti/{cutiId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.karyawan_id == request.auth.uid;
+      allow update: if isHRD() || isAtasan() || (isAuthenticated() && resource.data.karyawan_id == request.auth.uid);
+      allow delete: if isHRD();
+    }
+
+    // 6. Koleksi absensi: Check-in/out mandiri (BR-02); hanya HRD boleh koreksi (BR-03)
+    match /absensi/{absensiId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isHRD() || (isAuthenticated() && resource.data.karyawan_id == request.auth.uid);
+      allow delete: if isHRD();
+    }
+
+    // 7. Koleksi slip_gaji: RAHASIA (BR-11)! Hanya pemilik slip dan HRD yang boleh akses
+    match /slip_gaji/{slipId} {
+      allow read: if isHRD() || (isAuthenticated() && resource.data.karyawan_id == request.auth.uid && resource.data.status == 'terbit');
+      allow write: if isHRD();
+    }
+
+    // 8. Koleksi audit_log: PERMANEN (BR-12)! Tidak boleh diubah atau dihapus oleh siapa pun
+    match /audit_log/{logId} {
+      allow read: if isHRD();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // IMMUTABLE
+    }
+  }
+}

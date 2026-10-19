@@ -4,22 +4,112 @@ import React, { useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 
+interface ApprovalItem {
+  id: string;
+  nama: string;
+  nik: string;
+  divisi: string;
+  jabatan: string;
+  jenis: string;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  jumlah_hari: number;
+  alasan: string;
+  status: "diajukan" | "disetujui_atasan" | "disetujui" | "ditolak";
+  kuota_jatah: number;
+  kuota_terpakai: number;
+  kuota_sisa: number;
+  lampiran: string;
+  status_kerja: string;
+  dibuat_pada: string;
+}
+
 export default function PersetujuanPage() {
   const { user } = useAuth();
-  const [statusPengajuan, setStatusPengajuan] = useState<"diajukan" | "disetujui_atasan" | "disetujui" | "ditolak">("diajukan");
+
+  // Daftar antrean pengajuan menunggu
+  const [queue, setQueue] = useState<ApprovalItem[]>([
+    {
+      id: "appr-01",
+      nama: "Andi Wijaya",
+      nik: "KLN-0009",
+      divisi: "Penjualan",
+      jabatan: "Sales Executive",
+      jenis: "Cuti tahunan",
+      tanggal_mulai: "Senin, 26 Okt 2026",
+      tanggal_selesai: "Rabu, 28 Okt 2026",
+      jumlah_hari: 3,
+      alasan: "Pulang kampung ke Yogyakarta",
+      status: "diajukan",
+      kuota_jatah: 12,
+      kuota_terpakai: 7,
+      kuota_sisa: 5,
+      lampiran: "Tidak ada",
+      status_kerja: "Tetap, masuk 1 Jun 2021",
+      dibuat_pada: "13 Okt 2026 pukul 09.12",
+    },
+    {
+      id: "appr-02",
+      nama: "Putri Lestari",
+      nik: "KLN-0012",
+      divisi: "Penjualan",
+      jabatan: "Sales Representative",
+      jenis: "Cuti tahunan",
+      tanggal_mulai: "Senin, 9 Nov 2026",
+      tanggal_selesai: "Rabu, 11 Nov 2026",
+      jumlah_hari: 3,
+      alasan: "Keperluan keluarga di Bandung",
+      status: "disetujui_atasan",
+      kuota_jatah: 12,
+      kuota_terpakai: 12,
+      kuota_sisa: 0,
+      lampiran: "Tidak ada",
+      status_kerja: "Tetap, masuk 1 Agu 2021",
+      dibuat_pada: "12 Okt 2026 pukul 14.20",
+    },
+    {
+      id: "appr-03",
+      nama: "Larasati Dewi",
+      nik: "KLN-0010",
+      divisi: "Keuangan",
+      jabatan: "Staff Keuangan",
+      jenis: "Sakit",
+      tanggal_mulai: "Rabu, 14 Okt 2026",
+      tanggal_selesai: "Kamis, 15 Okt 2026",
+      jumlah_hari: 2,
+      alasan: "Demam dan flu berat",
+      status: "diajukan",
+      kuota_jatah: 12,
+      kuota_terpakai: 4,
+      kuota_sisa: 8,
+      lampiran: "surat_dokter_larasati.pdf (1.2 MB)",
+      status_kerja: "Tetap, masuk 10 Jan 2022",
+      dibuat_pada: "14 Okt 2026 pukul 08.05",
+    },
+  ]);
+
+  const [selectedId, setSelectedId] = useState<string>("appr-01");
+  const selected = queue.find((q) => q.id === selectedId) || queue[0];
+
   const [alasanPenolakan, setAlasanPenolakan] = useState("");
   const [alertError, setAlertError] = useState<string | null>(null);
   const [alertSuccess, setAlertSuccess] = useState<string | null>(null);
 
   const handleApprove = () => {
     setAlertError(null);
-    if (user?.peran === "atasan") {
-      setStatusPengajuan("disetujui_atasan");
-      setAlertSuccess("Pengajuan berhasil disetujui (Tahap 1). Diteruskan ke HRD untuk keputusan akhir.");
-    } else {
-      setStatusPengajuan("disetujui");
-      setAlertSuccess("Pengajuan resmi disetujui HRD (Keputusan Akhir). Kuota cuti pemohon telah terpotong.");
-    }
+    const isAtasan = user?.peran === "atasan";
+    const nextStatus = isAtasan ? "disetujui_atasan" : "disetujui";
+
+    setQueue((prev) =>
+      prev.map((item) => (item.id === selected.id ? { ...item, status: nextStatus } : item))
+    );
+
+    setAlertSuccess(
+      isAtasan
+        ? `Pengajuan ${selected.nama} berhasil disetujui (Tahap 1). Diteruskan ke HRD.`
+        : `Pengajuan ${selected.nama} resmi disetujui HRD (Keputusan Akhir).`
+    );
+    setTimeout(() => setAlertSuccess(null), 4000);
   };
 
   const handleReject = () => {
@@ -28,31 +118,66 @@ export default function PersetujuanPage() {
       setAlertError("Alasan penolakan wajib minimal 10 karakter sesuai Aturan Bisnis BR-09.");
       return;
     }
-    setStatusPengajuan("ditolak");
-    setAlertSuccess("Pengajuan telah ditolak. Kuota cuti tahunan otomatis dikembalikan ke pemohon.");
+
+    setQueue((prev) =>
+      prev.map((item) => (item.id === selected.id ? { ...item, status: "ditolak" } : item))
+    );
+    setAlertSuccess(`Pengajuan ${selected.nama} telah ditolak. Kuota cuti otomatis dikembalikan.`);
+    setAlasanPenolakan("");
+    setTimeout(() => setAlertSuccess(null), 4000);
   };
 
   return (
     <AppLayout>
-      {/* Breadcrumb & Header Sesuai Wireframe 3 */}
+      {/* Header & Antrean Singkat */}
       <div className="breadcrumb-area">
         <span className="breadcrumb-text">Persetujuan / Detail pengajuan</span>
         <div className="title-row">
-          <h2 className="leave-title">Cuti tahunan: Andi Wijaya</h2>
-          <span className={`status-pill ${statusPengajuan}`}>
-            {statusPengajuan === "diajukan" ? "Diajukan" : statusPengajuan === "disetujui_atasan" ? "Disetujui atasan" : statusPengajuan === "disetujui" ? "Disetujui" : "Ditolak"}
+          <h2 className="leave-title">
+            {selected.jenis}: {selected.nama}
+          </h2>
+          <span className={`status-pill ${selected.status}`}>
+            {selected.status === "diajukan"
+              ? "Diajukan"
+              : selected.status === "disetujui_atasan"
+              ? "Disetujui atasan"
+              : selected.status === "disetujui"
+              ? "Disetujui"
+              : "Ditolak"}
           </span>
         </div>
         <p className="subtitle-info">
-          Diajukan 13 Okt 2026 pukul 09.12 · {statusPengajuan === "disetujui_atasan" ? "Tahap 2 dari 2 (Menunggu HRD)" : "Tahap 1 dari 2 (Atasan, lalu HRD)"}
+          Diajukan {selected.dibuat_pada} ·{" "}
+          {selected.status === "disetujui_atasan"
+            ? "Tahap 2 dari 2 (Menunggu Keputusan Akhir HRD)"
+            : "Tahap 1 dari 2 (Atasan divisi, lalu HRD)"}
         </p>
       </div>
 
-      {alertSuccess && (
-        <div className="alert-box-success">
-          {alertSuccess}
+      {alertSuccess && <div className="alert-box-success">{alertSuccess}</div>}
+
+      {/* Antrean Pengajuan Selector Tabs */}
+      <div className="queue-selector-card">
+        <span className="queue-title">Antrean Pengajuan Menunggu:</span>
+        <div className="queue-tabs">
+          {queue.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setSelectedId(item.id);
+                setAlertError(null);
+              }}
+              className={`queue-btn ${selectedId === item.id ? "active" : ""}`}
+            >
+              <span className="btn-name">{item.nama}</span>
+              <span className="btn-type">({item.jenis})</span>
+              <span className={`queue-badge ${item.status}`}>
+                {item.status === "diajukan" ? "Tahap 1" : item.status === "disetujui_atasan" ? "Tahap HRD" : item.status}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Grid 2 Kolom Sesuai Wireframe 3 */}
       <div className="approval-main-grid">
@@ -62,52 +187,49 @@ export default function PersetujuanPage() {
             <div className="info-grid">
               <div>
                 <span className="caption">Pemohon</span>
-                <p className="val font-semibold">Andi Wijaya · KLN-0009 · Sales Executive</p>
+                <p className="val font-semibold">{selected.nama} · {selected.nik} · {selected.jabatan}</p>
               </div>
 
               <div>
                 <span className="caption">Kuota cuti pemohon 2026</span>
                 <p className="val">
-                  Jatah 12 · terpakai 7 (termasuk pengajuan ini) · <span className="font-semibold text-blue">sisa 5</span>
+                  Jatah {selected.kuota_jatah} · terpakai {selected.kuota_terpakai} ·{" "}
+                  <span className="font-semibold text-blue">sisa {selected.kuota_sisa}</span>
                 </p>
               </div>
 
               <div>
                 <span className="caption">Tanggal</span>
-                <p className="val">Senin, 26 Okt 2026 sampai Rabu, 28 Okt 2026</p>
+                <p className="val">{selected.tanggal_mulai} sampai {selected.tanggal_selesai}</p>
               </div>
 
               <div>
                 <span className="caption">Lampiran</span>
-                <p className="val">Tidak ada</p>
+                <p className="val">{selected.lampiran}</p>
               </div>
 
               <div>
                 <span className="caption">Lama</span>
-                <p className="val font-semibold">3 hari kerja</p>
+                <p className="val font-semibold">{selected.jumlah_hari} hari kerja</p>
               </div>
 
               <div>
                 <span className="caption">Status kerja</span>
-                <p className="val">Tetap, masuk 1 Jun 2021</p>
+                <p className="val">{selected.status_kerja}</p>
               </div>
 
               <div className="full-width">
                 <span className="caption">Alasan</span>
-                <p className="val">Pulang kampung ke Yogyakarta</p>
+                <p className="val">{selected.alasan}</p>
               </div>
             </div>
 
             {/* Form Keputusan Anda */}
-            {statusPengajuan === "diajukan" && (
+            {(selected.status === "diajukan" || (selected.status === "disetujui_atasan" && user?.peran === "hrd")) && (
               <div className="decision-box">
                 <h4 className="decision-heading">Keputusan Anda</h4>
 
-                {alertError && (
-                  <div className="alert-box-error">
-                    {alertError}
-                  </div>
-                )}
+                {alertError && <div className="alert-box-error">{alertError}</div>}
 
                 <textarea
                   rows={2}
@@ -127,7 +249,7 @@ export default function PersetujuanPage() {
                   <span className="action-note">
                     {user?.peran === "atasan"
                       ? "Setelah Anda setujui, pengajuan diteruskan ke HRD."
-                      : "Keputusan final HRD akan mengunci status pengajuan."}
+                      : "Keputusan akhir HRD akan memotong kuota dan mengunci status pengajuan."}
                   </span>
                 </div>
               </div>
@@ -135,7 +257,7 @@ export default function PersetujuanPage() {
           </div>
         </div>
 
-        {/* Kolom Kanan: Riwayat Status & Rekan Tim yang Cuti */}
+        {/* Kolom Kanan: Riwayat Status & Rekan Tim */}
         <div className="right-column">
           {/* Riwayat Status */}
           <div className="ui-card mb-4">
@@ -144,36 +266,38 @@ export default function PersetujuanPage() {
               <div className="timeline-item done">
                 <div className="dot"></div>
                 <div>
-                  <p className="tl-title">Diajukan oleh Andi Wijaya</p>
-                  <p className="tl-time">13 Okt 2026, 09.12</p>
+                  <p className="tl-title">Diajukan oleh {selected.nama}</p>
+                  <p className="tl-time">{selected.dibuat_pada}</p>
                 </div>
               </div>
 
-              <div className={`timeline-item ${statusPengajuan !== "diajukan" ? "done" : "active"}`}>
+              <div className={`timeline-item ${selected.status !== "diajukan" ? "done" : "active"}`}>
                 <div className="dot"></div>
                 <div>
                   <p className="tl-title">
-                    {statusPengajuan === "diajukan"
+                    {selected.status === "diajukan"
                       ? "Menunggu Atasan (Maya Anggraini)"
-                      : "Disetujui oleh Maya Anggraini (Tahap 1)"}
+                      : "Disetujui Atasan (Tahap 1)"}
                   </p>
                 </div>
               </div>
 
-              <div className={`timeline-item ${statusPengajuan === "disetujui" ? "done" : ""}`}>
+              <div className={`timeline-item ${selected.status === "disetujui" ? "done" : ""}`}>
                 <div className="dot"></div>
                 <div>
                   <p className="tl-title">
-                    {statusPengajuan === "disetujui" ? "Disetujui HRD (Rina Kusumawardani)" : "Menunggu HRD"}
+                    {selected.status === "disetujui"
+                      ? "Disetujui HRD (Rina Kusumawardani)"
+                      : "Menunggu HRD"}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tim Penjualan yang Cuti di Sekitar Tanggal Ini */}
+          {/* Tim yang Cuti di Sekitar Tanggal Ini */}
           <div className="ui-card">
-            <h4 className="section-title">Tim Penjualan yang cuti di sekitar tanggal ini</h4>
+            <h4 className="section-title">Tim {selected.divisi} yang cuti di sekitar tanggal ini</h4>
             <table className="ui-table">
               <thead>
                 <tr>
@@ -199,9 +323,9 @@ export default function PersetujuanPage() {
         </div>
       </div>
 
-      {/* Banner Aturan Bisnis di Bagian Bawah Sesuai Wireframe 3 */}
+      {/* Banner Aturan Bisnis Wireframe 3 */}
       <div className="rules-banner">
-        Aturan: Anda hanya bisa memutuskan pengajuan anggota divisi Penjualan pada tahap 1. Pengajuan Anda sendiri diputuskan langsung oleh HRD. Data gaji anggota tidak ditampilkan untuk Atasan.
+        Aturan: Anda hanya bisa memutuskan pengajuan anggota divisi {selected.divisi} pada tahap 1. Pengajuan Anda sendiri diputuskan langsung oleh HRD. Data gaji anggota tidak ditampilkan untuk Atasan.
       </div>
 
       <style jsx>{`
@@ -251,6 +375,75 @@ export default function PersetujuanPage() {
           border-radius: 6px;
           font-size: 0.75rem;
           margin-bottom: 0.75rem;
+        }
+
+        .queue-selector-card {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 0.625rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+          flex-wrap: wrap;
+        }
+
+        .queue-title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: #4b5563;
+        }
+
+        .queue-tabs {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .queue-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.35rem 0.65rem;
+          background-color: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          cursor: pointer;
+          font-family: inherit;
+        }
+
+        .queue-btn.active {
+          background-color: #dbeafe;
+          border-color: #2563eb;
+          color: #1d4ed8;
+          font-weight: 600;
+        }
+
+        .btn-name {
+          font-weight: 600;
+        }
+
+        .btn-type {
+          color: #6b7280;
+        }
+
+        .queue-badge {
+          font-size: 0.625rem;
+          padding: 0.05rem 0.35rem;
+          border-radius: 4px;
+          background: #e5e7eb;
+          color: #374151;
+        }
+
+        .queue-badge.diajukan {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .queue-badge.disetujui_atasan {
+          background: #dbeafe;
+          color: #1e40af;
         }
 
         .approval-main-grid {
@@ -352,7 +545,6 @@ export default function PersetujuanPage() {
           display: flex;
           align-items: flex-start;
           gap: 0.75rem;
-          position: relative;
         }
 
         .dot {

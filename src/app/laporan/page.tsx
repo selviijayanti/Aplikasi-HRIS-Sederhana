@@ -3,8 +3,19 @@
 import React from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { formatRupiah } from "@/lib/utils/time";
+import { exportToCSV } from "@/lib/utils/csv";
 
 export default function LaporanPage() {
+  const handleExportCSV = () => {
+    const reportData = [
+      { divisi: "Operasional Gudang", slip_terbit: 6, pokok_tunjangan: 56000000, potongan: 1948000, total_diterima: 54052000 },
+      { divisi: "Penjualan", slip_terbit: 5, pokok_tunjangan: 50350000, potongan: 2190000, total_diterima: 48160000 },
+      { divisi: "Keuangan", slip_terbit: 3, pokok_tunjangan: 34600000, potongan: 1212000, total_diterima: 33388000 },
+      { divisi: "Human Resources", slip_terbit: 2, pokok_tunjangan: 27200000, potongan: 952000, total_diterima: 26248000 },
+    ];
+    exportToCSV("Laporan_Rekap_Gaji_September_2026", reportData);
+  };
+
   return (
     <AppLayout>
       {/* Header Laporan Sesuai Wireframe 4 */}
@@ -12,10 +23,14 @@ export default function LaporanPage() {
         <div>
           <h2 className="laporan-title">Laporan Kehadiran, Cuti, dan Gaji</h2>
           <p className="laporan-subtitle">
-            Rentang 21 Sep sampai 15 Okt 2026 · Semua divisi · <button className="link-btn">Unduh CSV</button>
+            Rentang 21 Sep sampai 15 Okt 2026 · Semua divisi ·{" "}
+            <button onClick={handleExportCSV} className="link-btn">
+              Unduh CSV
+            </button>
           </p>
         </div>
       </div>
+
 
       {/* 4 Kotak Metrik Ringkasan Eksekutif */}
       <div className="metrics-row">

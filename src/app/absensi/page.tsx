@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
+import { exportToCSV } from "@/lib/utils/csv";
 import absensiData from "../../../data/seeds/absensi.json";
 import profilesData from "../../../data/seeds/profiles.json";
-import divisiData from "../../../data/seeds/divisi.json";
 
 interface AttendanceRow {
   id: string;
@@ -21,11 +21,16 @@ interface AttendanceRow {
 
 export default function AbsensiPage() {
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState("2026-10-08"); // Sesuai Wireframe 2: Kamis, 8 Okt 2026
+  const [activeTab, setActiveTab] = useState<"harian" | "pribadi">(
+    user?.peran === "karyawan" ? "pribadi" : "harian"
+  );
+
+  // Filter Harian (Wireframe 2)
+  const [selectedDate, setSelectedDate] = useState("2026-10-08");
   const [selectedDivisi, setSelectedDivisi] = useState("Semua");
   const [selectedStatus, setSelectedStatus] = useState("Semua");
 
-  // State Modal Koreksi (BR-03: Hanya HRD, alasan minimal 10 karakter)
+  // State Modal Koreksi (HRD - BR-03)
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AttendanceRow | null>(null);
   const [koreksiStatus, setKoreksiStatus] = useState("hadir");
@@ -38,13 +43,7 @@ export default function AbsensiPage() {
   // Buat lookup profile
   const profileMap = useMemo(() => {
     const map = new Map<string, { nik: string; nama: string; divisi: string; divisi_id: string }>();
-    (profilesData as Array<{
-      id: string;
-      nik_karyawan: string;
-      nama_lengkap: string;
-      divisi_id: string;
-      "divisi (bantu)"?: string;
-    }>).forEach((p) => {
+    (profilesData as Array<any>).forEach((p) => {
       map.set(p.id, {
         nik: p.nik_karyawan,
         nama: p.nama_lengkap,
@@ -55,19 +54,9 @@ export default function AbsensiPage() {
     return map;
   }, []);
 
-  // Filter & bangun baris absensi
-  const rows: AttendanceRow[] = useMemo(() => {
-    // Ambil data absensi sesuai tanggal
-    const list = (absensiData as Array<{
-      id: string;
-      karyawan_id: string;
-      tanggal: string;
-      jam_masuk?: string | null;
-      jam_pulang?: string | null;
-      status?: string | null;
-      "nama (bantu)"?: string;
-      "divisi (bantu)"?: string;
-    }>).filter((a) => a.tanggal === selectedDate);
+  // Filter & bangun baris absensi harian
+  const dailyRows: AttendanceRow[] = useMemo(() => {
+    const list = (absensiData as Array<any>).filter((a) => a.tanggal === selectedDate);
 
     let mapped: AttendanceRow[] = list.map((item) => {
       const p = profileMap.get(item.karyawan_id);
@@ -84,7 +73,6 @@ export default function AbsensiPage() {
       };
     });
 
-    // Jika peran Atasan, batasi hanya divisi miliknya (PRD BR-01 & US-06)
     if (user?.peran === "atasan" && user.divisi_id) {
       mapped = mapped.filter((r) => r.divisi_id === user.divisi_id);
     } else if (selectedDivisi !== "Semua") {
@@ -98,14 +86,21 @@ export default function AbsensiPage() {
     return mapped;
   }, [selectedDate, selectedDivisi, selectedStatus, profileMap, user]);
 
-  // Hitung Metrik Atas (Sesuai Wireframe 2)
+  // Riwayat Absensi Pribadi Pengguna (PRD Bab 7: Semua peran dapat melihat absensi sendiri)
+  const personalRows = useMemo(() => {
+    return (absensiData as Array<any>)
+      .filter((a) => a.karyawan_id === user?.id)
+      .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  }, [user]);
+
+  // Hitung Metrik Harian
   const metrics = useMemo(() => {
     let tepatWaktu = 0;
     let terlambat = 0;
     let izinCuti = 0;
     let tanpaKeterangan = 0;
 
-    rows.forEach((r) => {
+    dailyRows.forEach((r) => {
       if (r.status === "hadir") tepatWaktu++;
       else if (r.status === "terlambat") terlambat++;
       else if (r.status === "sakit" || r.status === "izin" || r.status === "cuti") izinCuti++;
@@ -113,7 +108,7 @@ export default function AbsensiPage() {
     });
 
     return { tepatWaktu, terlambat, izinCuti, tanpaKeterangan };
-  }, [rows]);
+  }, [dailyRows]);
 
   const handleOpenCorrection = (row: AttendanceRow) => {
     setSelectedRow(row);
@@ -131,178 +126,253 @@ export default function AbsensiPage() {
       setCorrectionError("Alasan koreksi wajib diisi minimal 10 karakter sesuai aturan BR-03.");
       return;
     }
-
-    // Sukses koreksi
     setCorrectionSuccess(`Absensi ${selectedRow?.nama} berhasil diperbarui.`);
     setShowCorrectionModal(false);
     setTimeout(() => setCorrectionSuccess(null), 3000);
+  };
+
+  const handleDownloadCSV = () => {
+    if (activeTab === "harian") {
+      exportToCSV(`Absensi_Harian_${selectedDate}`, dailyRows, [
+        "nik_karyawan",
+        "nama",
+        "divisi",
+        "masuk",
+        "pulang",
+        "status",
+        "catatan",
+      ]);
+    } else {
+      exportToCSV(`Riwayat_Absensi_${user?.nama_lengkap}`, personalRows, [
+        "tanggal",
+        "jam_masuk",
+        "jam_pulang",
+        "status",
+        "alasan_koreksi",
+      ]);
+    }
   };
 
   return (
     <AppLayout>
       <div className="page-header-row">
         <div>
-          <h2 className="page-title">Absensi Harian</h2>
+          <h2 className="page-title">Absensi {activeTab === "harian" ? "Harian" : "Pribadi"}</h2>
           <p className="page-sub">
-            {user?.peran === "atasan" 
-              ? `Anggota divisi ${user.divisi_nama || ""} · data dari server, zona WIB`
-              : "Semua karyawan aktif · data dari server, zona WIB"}
+            {activeTab === "harian"
+              ? user?.peran === "atasan"
+                ? `Anggota divisi ${user.divisi_nama || ""} · data dari server, zona WIB`
+                : "Semua karyawan aktif · data dari server, zona WIB"
+              : "Riwayat presensi check-in dan check-out akun Anda."}
           </p>
         </div>
+
+        {/* Tab Switcher jika Atasan/HRD */}
+        {user?.peran !== "karyawan" && (
+          <div className="tab-switch">
+            <button
+              onClick={() => setActiveTab("harian")}
+              className={`switch-btn ${activeTab === "harian" ? "active" : ""}`}
+            >
+              Absensi Tim / Perusahaan
+            </button>
+            <button
+              onClick={() => setActiveTab("pribadi")}
+              className={`switch-btn ${activeTab === "pribadi" ? "active" : ""}`}
+            >
+              Absensi Saya
+            </button>
+          </div>
+        )}
       </div>
 
-      {correctionSuccess && (
-        <div className="alert-success">
-          {correctionSuccess}
-        </div>
+      {correctionSuccess && <div className="alert-success">{correctionSuccess}</div>}
+
+      {/* TAMPILAN 1: ABSENSI HARIAN (WIREFRAME 2) */}
+      {activeTab === "harian" && (
+        <>
+          {/* Filter Bar */}
+          <div className="filter-card">
+            <div className="filter-group-row">
+              <div className="filter-control">
+                <label className="filter-lbl">Tanggal:</label>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="2026-10-08">Kamis, 8 Okt 2026</option>
+                  <option value="2026-10-09">Jumat, 9 Okt 2026</option>
+                  <option value="2026-10-12">Senin, 12 Okt 2026</option>
+                  <option value="2026-10-13">Selasa, 13 Okt 2026</option>
+                  <option value="2026-10-14">Rabu, 14 Okt 2026</option>
+                  <option value="2026-10-15">Kamis, 15 Okt 2026</option>
+                </select>
+              </div>
+
+              {user?.peran === "hrd" && (
+                <div className="filter-control">
+                  <label className="filter-lbl">Divisi:</label>
+                  <select
+                    value={selectedDivisi}
+                    onChange={(e) => setSelectedDivisi(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="Semua">Semua</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Operasional Gudang">Operasional Gudang</option>
+                    <option value="Penjualan">Penjualan</option>
+                    <option value="Keuangan">Keuangan</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="filter-control">
+                <label className="filter-lbl">Status:</label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="Semua">Semua</option>
+                  <option value="hadir">Hadir</option>
+                  <option value="terlambat">Terlambat</option>
+                  <option value="sakit">Sakit</option>
+                </select>
+              </div>
+            </div>
+
+            <button onClick={handleDownloadCSV} className="ui-btn ui-btn-secondary">
+              Unduh CSV
+            </button>
+          </div>
+
+          {/* 4 Kotak Metrik (Wireframe 2) */}
+          <div className="attendance-metrics-grid">
+            <div className="ui-card">
+              <div className="metric-title">HADIR TEPAT WAKTU</div>
+              <div className="metric-highlight-row">
+                <span className="metric-big-number">{metrics.tepatWaktu}</span>
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="metric-title">TERLAMBAT</div>
+              <div className="metric-highlight-row">
+                <span className="metric-big-number">{metrics.terlambat}</span>
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="metric-title">CUTI, SAKIT, IZIN</div>
+              <div className="metric-highlight-row">
+                <span className="metric-big-number">{metrics.izinCuti}</span>
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="metric-title">TANPA KETERANGAN</div>
+              <div className="metric-highlight-row">
+                <span className="metric-big-number">{metrics.tanpaKeterangan}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabel Absensi Harian */}
+          <div className="ui-card">
+            <div className="ui-table-wrap">
+              <table className="ui-table">
+                <thead>
+                  <tr>
+                    <th>NIK</th>
+                    <th>NAMA</th>
+                    <th>DIVISI</th>
+                    <th>MASUK</th>
+                    <th>PULANG</th>
+                    <th>STATUS</th>
+                    <th>CATATAN</th>
+                    {user?.peran === "hrd" && <th>AKSI</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyRows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="font-mono">{row.nik_karyawan}</td>
+                      <td className="font-semibold">{row.nama}</td>
+                      <td>{row.divisi}</td>
+                      <td>{row.masuk}</td>
+                      <td>{row.pulang}</td>
+                      <td>
+                        <span className={`status-pill ${row.status.toLowerCase()}`}>
+                          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                        </span>
+                      </td>
+                      <td>{row.catatan ? <span className="catatan-text">{row.catatan}</span> : "-"}</td>
+                      {user?.peran === "hrd" && (
+                        <td>
+                          <button
+                            onClick={() => handleOpenCorrection(row)}
+                            className="ui-btn-cancel"
+                          >
+                            Koreksi
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {dailyRows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="empty-row">
+                        Tidak ada data absensi untuk filter ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Filter Bar Sesuai Wireframe 2 */}
-      <div className="filter-card">
-        <div className="filter-group-row">
-          <div className="filter-control">
-            <label className="filter-lbl">Tanggal:</label>
-            <select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="filter-select"
-            >
-              <option value="2026-10-08">Kamis, 8 Okt 2026</option>
-              <option value="2026-10-09">Jumat, 9 Okt 2026</option>
-              <option value="2026-10-12">Senin, 12 Okt 2026</option>
-              <option value="2026-10-13">Selasa, 13 Okt 2026</option>
-              <option value="2026-10-14">Rabu, 14 Okt 2026</option>
-              <option value="2026-10-15">Kamis, 15 Okt 2026</option>
-            </select>
-          </div>
-
-          {user?.peran === "hrd" && (
-            <div className="filter-control">
-              <label className="filter-lbl">Divisi:</label>
-              <select
-                value={selectedDivisi}
-                onChange={(e) => setSelectedDivisi(e.target.value)}
-                className="filter-select"
-              >
-                <option value="Semua">Semua</option>
-                <option value="Human Resources">Human Resources</option>
-                <option value="Operasional Gudang">Operasional Gudang</option>
-                <option value="Penjualan">Penjualan</option>
-                <option value="Keuangan">Keuangan</option>
-              </select>
-            </div>
-          )}
-
-          <div className="filter-control">
-            <label className="filter-lbl">Status:</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="filter-select"
-            >
-              <option value="Semua">Semua</option>
-              <option value="hadir">Hadir</option>
-              <option value="terlambat">Terlambat</option>
-              <option value="sakit">Sakit</option>
-            </select>
-          </div>
-        </div>
-
-        <button className="ui-btn ui-btn-secondary">
-          Unduh CSV
-        </button>
-      </div>
-
-      {/* 4 Kotak Metrik Sesuai Wireframe 2 */}
-      <div className="attendance-metrics-grid">
+      {/* TAMPILAN 2: RIWAYAT ABSENSI PRIBADI (PRD BAB 7) */}
+      {activeTab === "pribadi" && (
         <div className="ui-card">
-          <div className="metric-title">HADIR TEPAT WAKTU</div>
-          <div className="metric-highlight-row">
-            <span className="metric-big-number">{metrics.tepatWaktu}</span>
+          <div className="table-header-action">
+            <h3 className="section-title">Riwayat Absensi: {user?.nama_lengkap}</h3>
+            <button onClick={handleDownloadCSV} className="ui-btn ui-btn-secondary">
+              Unduh CSV
+            </button>
           </div>
-        </div>
-
-        <div className="ui-card">
-          <div className="metric-title">TERLAMBAT</div>
-          <div className="metric-highlight-row">
-            <span className="metric-big-number">{metrics.terlambat}</span>
-          </div>
-        </div>
-
-        <div className="ui-card">
-          <div className="metric-title">CUTI, SAKIT, IZIN</div>
-          <div className="metric-highlight-row">
-            <span className="metric-big-number">{metrics.izinCuti}</span>
-          </div>
-        </div>
-
-        <div className="ui-card">
-          <div className="metric-title">TANPA KETERANGAN</div>
-          <div className="metric-highlight-row">
-            <span className="metric-big-number">{metrics.tanpaKeterangan}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabel Data Absensi Harian */}
-      <div className="ui-card">
-        <div className="ui-table-wrap">
-          <table className="ui-table">
-            <thead>
-              <tr>
-                <th>NIK</th>
-                <th>NAMA</th>
-                <th>DIVISI</th>
-                <th>MASUK</th>
-                <th>PULANG</th>
-                <th>STATUS</th>
-                <th>CATATAN</th>
-                {user?.peran === "hrd" && <th>AKSI</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="font-mono">{row.nik_karyawan}</td>
-                  <td className="font-semibold">{row.nama}</td>
-                  <td>{row.divisi}</td>
-                  <td>{row.masuk}</td>
-                  <td>{row.pulang}</td>
-                  <td>
-                    <span className={`status-pill ${row.status.toLowerCase()}`}>
-                      {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                    </span>
-                  </td>
-                  <td>
-                    {row.catatan ? (
-                      <span className="catatan-text">{row.catatan}</span>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  {user?.peran === "hrd" && (
-                    <td>
-                      <button
-                        onClick={() => handleOpenCorrection(row)}
-                        className="ui-btn-cancel"
-                      >
-                        Koreksi
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {rows.length === 0 && (
+          <div className="ui-table-wrap">
+            <table className="ui-table">
+              <thead>
                 <tr>
-                  <td colSpan={8} className="empty-row">
-                    Tidak ada data absensi untuk filter ini.
-                  </td>
+                  <th>TANGGAL</th>
+                  <th>JAM MASUK (WIB)</th>
+                  <th>JAM PULANG (WIB)</th>
+                  <th>STATUS</th>
+                  <th>KETERANGAN / KOREKSI</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {personalRows.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="font-semibold">{item.tanggal}</td>
+                    <td>{item.jam_masuk?.slice(0, 5) || "-"}</td>
+                    <td>{item.jam_pulang?.slice(0, 5) || "-"}</td>
+                    <td>
+                      <span className={`status-pill ${item.status || "hadir"}`}>
+                        {item.status === "terlambat" ? "Terlambat" : "Hadir"}
+                      </span>
+                    </td>
+                    <td>{item.alasan_koreksi ? `Dikoreksi HRD: ${item.alasan_koreksi}` : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Koreksi Absensi (Khusus HRD - BR-03) */}
       {showCorrectionModal && selectedRow && (
@@ -313,11 +383,7 @@ export default function AbsensiPage() {
               {selectedRow.nik_karyawan} · {selectedRow.divisi} · Tanggal {selectedDate}
             </p>
 
-            {correctionError && (
-              <div className="modal-alert-error">
-                {correctionError}
-              </div>
-            )}
+            {correctionError && <div className="modal-alert-error">{correctionError}</div>}
 
             <form onSubmit={handleSaveCorrection} className="modal-form">
               <div className="form-row">
@@ -389,7 +455,12 @@ export default function AbsensiPage() {
 
       <style jsx>{`
         .page-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-bottom: -0.25rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
         .page-title {
@@ -402,6 +473,31 @@ export default function AbsensiPage() {
           font-size: 0.75rem;
           color: #6b7280;
           margin-top: 0.1rem;
+        }
+
+        .tab-switch {
+          display: flex;
+          background-color: #e5e7eb;
+          padding: 2px;
+          border-radius: 6px;
+        }
+
+        .switch-btn {
+          background: none;
+          border: none;
+          padding: 0.35rem 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #4b5563;
+          cursor: pointer;
+          border-radius: 4px;
+          font-family: inherit;
+        }
+
+        .switch-btn.active {
+          background-color: #ffffff;
+          color: #2563eb;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
         .alert-success {
@@ -465,6 +561,19 @@ export default function AbsensiPage() {
           .attendance-metrics-grid {
             grid-template-columns: repeat(2, 1fr);
           }
+        }
+
+        .table-header-action {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .section-title {
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: #111827;
         }
 
         .font-mono {

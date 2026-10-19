@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import AppLayout from "@/components/layout/AppLayout";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [hasCheckedIn, setHasCheckedIn] = useState(true);
   const [hasCheckedOut, setHasCheckedOut] = useState(false);
   const [checkInTime, setCheckInTime] = useState("07.39");
@@ -77,13 +80,44 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Ringkasan Tambahan Khusus Atasan / HRD (PRD Bab 7) */}
+      {user?.peran !== "karyawan" && (
+        <div className="role-summary-card">
+          <div className="role-summary-info">
+            <span className="role-badge-tag">{user?.peran.toUpperCase()} PANEL</span>
+            <h4 className="role-heading">
+              {user?.peran === "atasan"
+                ? `Ringkasan Tim Divisi ${user.divisi_nama || ""}`
+                : "Ringkasan Eksekutif Seluruh Perusahaan"}
+            </h4>
+            <p className="role-desc">
+              {user?.peran === "atasan"
+                ? "Terdapat 1 pengajuan cuti anggota divisi yang membutuhkan persetujuan Anda."
+                : "Terdapat 4 pengajuan cuti yang menunggu keputusan akhir dan slip gaji draf bulan Oktober."}
+            </p>
+          </div>
+          <div className="role-action-btns">
+            <a href="/persetujuan" className="ui-btn ui-btn-primary">
+              Buka Antrean Persetujuan ({user?.peran === "atasan" ? "1" : "4"})
+            </a>
+            {user?.peran === "hrd" && (
+              <a href="/laporan" className="ui-btn ui-btn-secondary">
+                Lihat Laporan Eksekutif
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Baris Kedua: Pengajuan Saya & Slip Gaji */}
       <div className="two-col-layout">
         {/* Pengajuan Saya */}
         <div className="ui-card">
           <div className="card-top-action">
             <h3 className="section-heading">Pengajuan saya</h3>
-            <button className="ui-btn ui-btn-primary">+ Ajukan cuti atau izin</button>
+            <a href="/cuti" className="ui-btn ui-btn-primary">
+              + Ajukan cuti atau izin
+            </a>
           </div>
 
           <div className="ui-table-wrap">
@@ -139,9 +173,9 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <button className="ui-btn ui-btn-secondary w-full">
+            <a href="/slip-gaji" className="ui-btn ui-btn-secondary w-full text-center">
               Lihat dan unduh slip
-            </button>
+            </a>
             <p className="slip-note-text">
               Slip hanya bisa dilihat oleh Anda dan HRD.
             </p>
@@ -199,6 +233,43 @@ export default function DashboardPage() {
       </div>
 
       <style jsx>{`
+        .role-summary-card {
+          background-color: #ffffff;
+          border: 1px solid #bfdbfe;
+          border-left: 4px solid #2563eb;
+          border-radius: 8px;
+          padding: 1rem 1.25rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .role-badge-tag {
+          font-size: 0.625rem;
+          font-weight: 700;
+          color: #2563eb;
+          letter-spacing: 0.05em;
+        }
+
+        .role-heading {
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: #111827;
+          margin: 0.15rem 0;
+        }
+
+        .role-desc {
+          font-size: 0.75rem;
+          color: #4b5563;
+        }
+
+        .role-action-btns {
+          display: flex;
+          gap: 0.5rem;
+        }
+
         .two-col-layout {
           display: grid;
           grid-template-columns: 2fr 1fr;
@@ -261,6 +332,10 @@ export default function DashboardPage() {
 
         .w-full {
           width: 100%;
+        }
+
+        .text-center {
+          text-align: center;
         }
 
         .slip-note-text {

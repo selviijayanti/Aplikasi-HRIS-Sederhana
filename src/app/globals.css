@@ -191,16 +191,6 @@ body {
   margin-top: 0.2rem;
 }
 
-.wireframe-badge {
-  background-color: #0f172a;
-  color: #ffffff;
-  font-size: 0.625rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.04em;
-}
-
 /* Common Card System */
 .ui-card {
   background: #ffffff;

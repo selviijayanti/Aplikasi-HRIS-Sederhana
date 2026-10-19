@@ -159,9 +159,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </h2>
             <p className="header-time">{serverTimeFormatted}</p>
           </div>
-          <div className="wireframe-badge">
-            REFERENSI TAMPILAN, bukan desain wajib
-          </div>
         </header>
 
         {children}

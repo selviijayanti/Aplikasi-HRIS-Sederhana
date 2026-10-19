@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 4. Cari profile lengkap
-    const profile = (profilesData as Array<Profile & { "divisi (bantu)"?: string }>).find(
+    const profile = (profilesData as unknown as Array<Profile & { "divisi (bantu)"?: string }>).find(
       (p) => p.email.toLowerCase() === cleanEmail
     );
 

@@ -16,7 +16,7 @@ export interface Profile {
   nik_karyawan: string; // e.g. KLN-0001
   nama_lengkap: string;
   email: string;
-  nomor_hp?: string | null;
+  nomor_hp?: string | number | null;
   peran: Peran;
   divisi_id: string;
   jabatan: string;

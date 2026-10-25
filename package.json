@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:firebase": "node scripts/seed-firebase.mjs"
+    "seed:firebase": "node scripts/seed-firebase.mjs",
+    "cleanup:leaves": "node scripts/cleanup-duplicate-leaves.mjs"
   },
   "dependencies": {
     "firebase": "^13.0.0",

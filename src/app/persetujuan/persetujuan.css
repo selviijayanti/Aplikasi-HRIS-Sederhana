@@ -1,0 +1,1487 @@
+/* ==========================================================================
+   PERSETUJUAN CUTI & IZIN - MODERN ENTERPRISE HRIS LAYOUT (RIPPLING / DEEL STANDARD)
+   ========================================================================== */
+
+/* 1. Viewport Pembungkus Utama (Mencegah Ketimpangan pada Ultrawide / Zoom-out) */
+.persetujuan-viewport {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+  overflow: hidden;
+}
+
+/* 2. Kontainer Utama Responsif (Max-Width 1480px & Centered dengan margin: 0 auto) */
+.persetujuan-main-container {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 1.75rem 2rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* 3. Page Header Terpisah & Membentang Penuh (Jarak Bawah 24px Lega) */
+.persetujuan-page-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+  gap: 1.5rem;
+}
+
+.header-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.page-heading {
+  font-size: 1.3125rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.page-subheading {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.header-badge-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Badge Perlu Tindakan */
+.topbar-pill-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.06);
+}
+
+.pulse-dot-blue {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.topbar-pill-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+/* 4. Grid Dua Kolom (Master-Detail): Sejajar Sempurna & Simetris */
+.persetujuan-master-detail-grid {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Kolom Kiri: Lebar Tetap Proporsional (360px, shrink-0) */
+.persetujuan-master-card {
+  width: 360px;
+  min-width: 330px;
+  max-width: 380px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Fallback / Legacy Support */
+.page-topbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.15rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.persetujuan-content-canvas {
+  flex: 1;
+  padding: 1.5rem 2rem 1.75rem 2rem;
+  display: flex;
+  gap: 1.5rem;
+  overflow: hidden;
+  background-color: #f8fafc;
+  height: calc(100vh - 76px);
+}
+
+/* Header dalam Kartu Kotak Masuk */
+.master-card-header {
+  padding: 1.15rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background-color: #ffffff;
+}
+
+.master-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.master-main-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.master-counter-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Segmented Control Tabs */
+.persetujuan-tabs-wrap {
+  display: flex;
+  background-color: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+}
+
+.persetujuan-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.persetujuan-tab-btn:hover {
+  color: #0f172a;
+}
+
+.persetujuan-tab-btn.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Search Box */
+.persetujuan-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-field-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.persetujuan-search-input {
+  width: 100%;
+  padding: 0.45rem 2rem 0.45rem 2.25rem;
+  font-size: 0.8125rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background-color: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.persetujuan-search-input:focus {
+  background-color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 0.65rem;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.2rem;
+  border-radius: 4px;
+}
+
+.search-clear-btn:hover {
+  color: #475569;
+}
+
+/* Scroll Area List Kiri */
+.persetujuan-master-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Item Kartu Daftar Pemohon di Kiri */
+.inbox-card-item {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #f8fafc;
+  border-left: 3px solid transparent;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.inbox-card-item:hover {
+  background-color: #f8fafc;
+}
+
+/* Item aktif yang dipilih: Penanda aktif garis biru vertikal tipis (3px solid #2563EB) */
+.inbox-card-item.selected {
+  background-color: #eff6ff !important;
+  border-left: 3px solid #2563eb !important;
+}
+
+/* Baris 1: Nama Pemohon & Tanggal Diajukan */
+.inbox-row-1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.inbox-employee-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-submitted-date {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Baris 2: Badge Tipe Cuti + Durasi */
+.inbox-row-2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.badge-leave-soft {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  line-height: 1.25;
+}
+
+.badge-duration-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  line-height: 1.25;
+}
+
+/* Baris 3: Tanggal Singkat & Status Badge */
+.inbox-row-3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.15rem;
+}
+
+.inbox-date-range {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Empty State Box (Tengah Vertikal, Bersih, Enterprise) */
+.inbox-empty-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  min-height: 280px;
+}
+
+.inbox-empty-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.875rem;
+}
+
+.inbox-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.35rem 0;
+  line-height: 1.35;
+}
+
+.inbox-empty-sub {
+  font-size: 0.78125rem;
+  font-weight: 400;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+  max-width: 250px;
+}
+
+
+/* --------------------------------------------------------------------------
+   4. KOLOM KANAN (DETAIL STREAM: GARIS ATAS SEJAJAR PERSIS DENGAN KOLOM KIRI)
+   -------------------------------------------------------------------------- */
+.persetujuan-detail-stream {
+  flex: 1;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-right: 0.35rem;
+}
+
+/* Detail Header Panel */
+.detail-header-panel {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.35rem 1.6rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.detail-header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.detail-breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.detail-id-code {
+  font-weight: 700;
+  color: #2563eb;
+  background-color: #eff6ff;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.detail-main-heading {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
+}
+
+.detail-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.detail-pill-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #f1f5f9;
+  color: #334155;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.detail-header-sub-row {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.78125rem;
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-dot-sep {
+  color: #cbd5e1;
+}
+
+/* --------------------------------------------------------------------------
+   5. KARTU KEPUTUSAN PERSETUJUAN (BERSIH, PUTIH, BORDER ABU NETRAL #E2E8F0)
+   -------------------------------------------------------------------------- */
+.decision-card-panel {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.35rem 1.6rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.decision-banner-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.decision-banner-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.decision-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.decision-banner-sub {
+  font-size: 0.78125rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+  line-height: 1.45;
+}
+
+.decision-rule-badge {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.decision-field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.decision-field-label {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.decision-textarea-input {
+  width: 100%;
+  min-height: 74px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  background-color: #ffffff;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.45;
+  transition: all 0.15s ease;
+}
+
+.decision-textarea-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.decision-bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.decision-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Tombol Primer Biru Brand Solid (#2563EB) */
+.btn-enterprise-approve {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.18);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: inherit;
+}
+
+.btn-enterprise-approve:hover {
+  background-color: #1d4ed8;
+}
+
+/* Tombol Sekunder Outline Lembut (Netral Abu-abu / Merah Halus) */
+.btn-enterprise-reject {
+  background-color: #ffffff;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: inherit;
+}
+
+.btn-enterprise-reject:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.decision-legal-footnote {
+  font-size: 0.71875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ==========================================================================
+   TOAST NOTIFICATION MELAYANG DI POJOK KANAN ATAS (AUTO-DISMISS 4 DETIK)
+   ========================================================================== */
+.floating-toast-container {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #16a34a;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 320px;
+  max-width: 440px;
+  animation: slideInToast 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInToast {
+  from {
+    transform: translateY(-16px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.floating-toast-body {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.floating-toast-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #ecfdf5;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.floating-toast-message {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.floating-toast-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.floating-toast-close:hover {
+  color: #334155;
+  background-color: #f1f5f9;
+}
+
+/* ==========================================================================
+   KARTU RIWAYAT KEPUTUSAN (BERSIH, PUTIH, BORDER ABU-ABU NETRAL #E2E8F0)
+   ========================================================================== */
+.decision-history-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.35rem 1.6rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.history-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.history-card-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Badges Status Keputusan */
+.badge-history-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-dot-green {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #059669;
+}
+
+.badge-history-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-dot-blue-sm {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #2563eb;
+}
+
+.badge-history-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-dot-red-sm {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #dc2626;
+}
+
+.badge-history-gray {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Metadata List */
+.history-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem 1.5rem;
+}
+
+.history-metadata-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.history-metadata-item.full-width {
+  grid-column: span 2;
+}
+
+.history-meta-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.history-meta-value {
+  font-size: 0.84375rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.history-note-box {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.8125rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.history-card-footnote {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.alert-reason-quote {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-left: 3px solid #f87171;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0 4px 4px 0;
+  color: #7f1d1d;
+}
+
+/* Toast Success Message */
+.enterprise-toast-success {
+  background-color: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   6. GRID 2 SEIMBANG (7 KOLOM UTAMA : 5 KOLOM PENDUKUNG)
+   -------------------------------------------------------------------------- */
+.detail-columns-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1200px) {
+  .detail-columns-grid {
+    grid-template-columns: 7fr 5fr;
+  }
+}
+
+.main-flow-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.side-flow-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Common Card Panel */
+.panel-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.35rem 1.6rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.15rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.panel-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.panel-subtitle {
+  font-size: 0.71875rem;
+  color: #64748b;
+  margin: 0.15rem 0 0 0;
+}
+
+.panel-soft-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background-color: #eff6ff;
+  color: #2563eb;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
+
+.panel-count-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
+
+/* Data Table Grid 2 Kolom */
+.verification-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.15rem 1.25rem;
+}
+
+.verif-full-span {
+  grid-column: span 2;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.verif-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.verif-val {
+  font-size: 0.84375rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+.verif-val.bold {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.verif-val.highlight-blue {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.verif-hint {
+  display: block;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
+
+/* Alasan & Attachment */
+.reason-blockquote {
+  background-color: #f8fafc;
+  border-left: 4px solid #cbd5e1;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: #334155;
+  font-size: 0.8125rem;
+  margin: 0.4rem 0 1.25rem 0;
+  line-height: 1.55;
+}
+
+.attachment-file-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  margin-top: 0.4rem;
+}
+
+.file-left-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.file-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background-color: #dbeafe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-meta-col {
+  min-width: 0;
+}
+
+.file-name-text {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 0.15rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-spec-text {
+  font-size: 0.6875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.file-status-verified {
+  color: #059669;
+  font-weight: 600;
+}
+
+.btn-file-action {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2563eb;
+  background-color: #ffffff;
+  border: 1px solid #bfdbfe;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-file-action:hover {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.empty-doc-box {
+  padding: 0.9rem 1.1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  margin-top: 0.4rem;
+}
+
+.empty-doc-title {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0;
+}
+
+.empty-doc-sub {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  margin: 0.2rem 0 0 0;
+  line-height: 1.35;
+}
+
+/* Quota Metrics Card */
+.quota-tri-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  margin-bottom: 1.15rem;
+}
+
+.quota-metric-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.quota-metric-tile.highlight {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.quota-tile-caption {
+  font-size: 0.6875rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.quota-tile-number {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.quota-tile-number.amber {
+  color: #d97706;
+}
+
+.quota-tile-number.blue {
+  color: #2563eb;
+}
+
+.progress-track-rail {
+  width: 100%;
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin: 0.4rem 0;
+}
+
+.progress-fill-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.progress-legend-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.quota-note-caption {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  margin: 0.35rem 0 0 0;
+}
+
+/* Vertical Stepper */
+.stepper-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  position: relative;
+  padding-left: 0.25rem;
+}
+
+.stepper-timeline::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background-color: #e2e8f0;
+  z-index: 1;
+}
+
+.stepper-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  position: relative;
+  z-index: 2;
+}
+
+.stepper-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 2px solid #cbd5e1;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.stepper-node.done .stepper-circle {
+  background-color: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.stepper-node.current .stepper-circle {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.stepper-node.failed .stepper-circle {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.stepper-text-col {
+  min-width: 0;
+}
+
+.stepper-main-text {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 0.15rem 0;
+}
+
+.stepper-sub-text {
+  font-size: 0.6875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Team Schedule Panel */
+.team-conflict-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.team-member-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.team-avatar-initials {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #e2e8f0;
+  color: #334155;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.team-desc-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-member-name {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-dates-text {
+  font-size: 0.6875rem;
+  color: #64748b;
+  display: block;
+  margin-top: 0.1rem;
+}
+
+.team-status-tag {
+  font-size: 0.625rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.team-status-tag.disetujui {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.team-status-tag.disetujui_atasan {
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+/* Status Pill Global */
+.badge-status-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.badge-dot-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.badge-status-pill.diajukan {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.badge-status-pill.diajukan .badge-dot-indicator {
+  background-color: #2563eb;
+}
+
+.badge-status-pill.disetujui_atasan {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.badge-status-pill.disetujui_atasan .badge-dot-indicator {
+  background-color: #2563eb;
+}
+
+.badge-status-pill.disetujui {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.badge-status-pill.disetujui .badge-dot-indicator {
+  background-color: #059669;
+}
+
+.badge-status-pill.ditolak {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.badge-status-pill.ditolak .badge-dot-indicator {
+  background-color: #dc2626;
+}
+
+.badge-status-pill.dibatalkan {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.badge-status-pill.dibatalkan .badge-dot-indicator {
+  background-color: #64748b;
+}
+
+/* ==========================================================================
+   RESPONSIVE MEDIA QUERIES (ULTRAWIDE, TABLET, ZOOM HANDLING)
+   ========================================================================== */
+
+/* Laptop / Desktop Menengah (1024px - 1280px) */
+@media (max-width: 1280px) {
+  .persetujuan-main-container {
+    padding: 1.25rem 1.5rem;
+  }
+  .persetujuan-master-card {
+    width: 340px;
+    min-width: 320px;
+  }
+}
+
+/* Tablet / Layar Kecil (di bawah 1024px) */
+@media (max-width: 1023px) {
+  .persetujuan-viewport {
+    height: auto;
+    overflow-y: auto;
+  }
+  .persetujuan-main-container {
+    height: auto;
+    min-height: auto;
+    padding: 1rem;
+  }
+  .persetujuan-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 18px;
+  }
+  .persetujuan-master-detail-grid {
+    flex-direction: column;
+    height: auto;
+  }
+  .persetujuan-master-card {
+    width: 100%;
+    max-width: 100%;
+    height: 440px;
+  }
+  .persetujuan-detail-stream {
+    height: auto;
+    overflow-y: visible;
+  }
+  .detail-columns-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -1,5 +1,285 @@
 [
   {
+    "tanggal": "2024-01-01",
+    "keterangan": "Tahun Baru 2024 Masehi",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-02-08",
+    "keterangan": "Isra Mikraj Nabi Muhammad SAW",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-02-09",
+    "keterangan": "Cuti Bersama Tahun Baru Imlek",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-02-10",
+    "keterangan": "Tahun Baru Imlek 2575 Kongzili",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-03-11",
+    "keterangan": "Hari Suci Nyepi Tahun Baru Saka 1946",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-03-12",
+    "keterangan": "Cuti Bersama Hari Suci Nyepi",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-03-29",
+    "keterangan": "Wafat Yesus Kristus",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-03-31",
+    "keterangan": "Hari Paskah",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-04-08",
+    "keterangan": "Cuti Bersama Idulfitri 1445 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-04-09",
+    "keterangan": "Cuti Bersama Idulfitri 1445 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-04-10",
+    "keterangan": "Hari Raya Idulfitri 1445 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-04-11",
+    "keterangan": "Hari Raya Idulfitri 1445 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-04-12",
+    "keterangan": "Cuti Bersama Idulfitri 1445 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-04-15",
+    "keterangan": "Cuti Bersama Idulfitri 1445 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-05-01",
+    "keterangan": "Hari Buruh Internasional",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-05-09",
+    "keterangan": "Kenaikan Yesus Kristus",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-05-10",
+    "keterangan": "Cuti Bersama Kenaikan Yesus Kristus",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-05-23",
+    "keterangan": "Hari Raya Waisak 2568 BE",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-05-24",
+    "keterangan": "Cuti Bersama Hari Raya Waisak",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-06-01",
+    "keterangan": "Hari Lahir Pancasila",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-06-17",
+    "keterangan": "Hari Raya Iduladha 1445 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-06-18",
+    "keterangan": "Cuti Bersama Iduladha 1445 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2024-07-07",
+    "keterangan": "Tahun Baru Islam 1446 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-08-17",
+    "keterangan": "Hari Kemerdekaan RI Ke-79",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-09-16",
+    "keterangan": "Maulid Nabi Muhammad SAW",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-10-23",
+    "keterangan": "HUT PT Karsa Lintas Nusantara",
+    "jenis": "perusahaan"
+  },
+  {
+    "tanggal": "2024-12-25",
+    "keterangan": "Hari Raya Natal",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2024-12-26",
+    "keterangan": "Cuti Bersama Hari Raya Natal",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-01-01",
+    "keterangan": "Tahun Baru 2025 Masehi",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-01-27",
+    "keterangan": "Isra Mikraj Nabi Muhammad SAW",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-01-28",
+    "keterangan": "Cuti Bersama Tahun Baru Imlek",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-01-29",
+    "keterangan": "Tahun Baru Imlek 2576 Kongzili",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-03-28",
+    "keterangan": "Cuti Bersama Hari Suci Nyepi",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-03-29",
+    "keterangan": "Hari Suci Nyepi Tahun Baru Saka 1947",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-03-31",
+    "keterangan": "Hari Raya Idulfitri 1446 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-04-01",
+    "keterangan": "Hari Raya Idulfitri 1446 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-04-02",
+    "keterangan": "Cuti Bersama Idulfitri 1446 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-04-03",
+    "keterangan": "Cuti Bersama Idulfitri 1446 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-04-04",
+    "keterangan": "Cuti Bersama Idulfitri 1446 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-04-07",
+    "keterangan": "Cuti Bersama Idulfitri 1446 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-04-18",
+    "keterangan": "Wafat Yesus Kristus",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-04-20",
+    "keterangan": "Kebangkitan Yesus Kristus (Paskah)",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-05-01",
+    "keterangan": "Hari Buruh Internasional",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-05-12",
+    "keterangan": "Hari Raya Waisak 2569 BE",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-05-13",
+    "keterangan": "Cuti Bersama Hari Raya Waisak",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-05-29",
+    "keterangan": "Kenaikan Yesus Kristus",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-05-30",
+    "keterangan": "Cuti Bersama Kenaikan Yesus Kristus",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-06-01",
+    "keterangan": "Hari Lahir Pancasila",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-06-06",
+    "keterangan": "Hari Raya Iduladha 1446 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-06-09",
+    "keterangan": "Cuti Bersama Iduladha 1446 H",
+    "jenis": "cuti_bersama"
+  },
+  {
+    "tanggal": "2025-06-27",
+    "keterangan": "1 Muharam Tahun Baru Islam 1447 H",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-08-17",
+    "keterangan": "Proklamasi Kemerdekaan RI Ke-80",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-09-05",
+    "keterangan": "Maulid Nabi Muhammad SAW",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-10-23",
+    "keterangan": "HUT PT Karsa Lintas Nusantara",
+    "jenis": "perusahaan"
+  },
+  {
+    "tanggal": "2025-12-25",
+    "keterangan": "Kelahiran Yesus Kristus (Hari Raya Natal)",
+    "jenis": "nasional"
+  },
+  {
+    "tanggal": "2025-12-26",
+    "keterangan": "Cuti Bersama Hari Raya Natal",
+    "jenis": "cuti_bersama"
+  },
+  {
     "tanggal": "2026-01-01",
     "keterangan": "Tahun Baru Masehi",
     "jenis": "nasional"

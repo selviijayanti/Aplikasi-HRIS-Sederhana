@@ -1,5 +1,325 @@
 [
   {
+    "id": "kuota-2024-001",
+    "karyawan_id": "1533d79b-4814-5d40-a1db-0f4df56eae1e",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 10,
+    "nama (bantu)": "Bayu Setiawan",
+    "sisa (bantu)": 2,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-002",
+    "karyawan_id": "391a65a7-cf37-5806-8e65-bba91e3c42e4",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 8,
+    "nama (bantu)": "Rina Kusumawardani",
+    "sisa (bantu)": 4,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-003",
+    "karyawan_id": "9e156b1b-7370-5e67-9dd3-e03340156757",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 12,
+    "nama (bantu)": "Maya Anggraini",
+    "sisa (bantu)": 0,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-004",
+    "karyawan_id": "ed0f5fa7-63fe-54c3-936e-342f8a31261c",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Hendra Gunawan",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-005",
+    "karyawan_id": "24173534-3de4-5c18-bc67-d3034545c061",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 11,
+    "nama (bantu)": "Siti Nurhaliza",
+    "sisa (bantu)": 1,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-006",
+    "karyawan_id": "22c1e137-9c79-5bae-a1e2-4dda8edffd71",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 9,
+    "nama (bantu)": "Agus Salim",
+    "sisa (bantu)": 3,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-007",
+    "karyawan_id": "3ce404ad-885e-51ef-bbf7-10345f2c2f04",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 7,
+    "nama (bantu)": "Andi Wijaya",
+    "sisa (bantu)": 5,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-008",
+    "karyawan_id": "1c5a8b5d-7360-584f-85bf-98b455254054",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 5,
+    "nama (bantu)": "Larasati Dewi",
+    "sisa (bantu)": 7,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-009",
+    "karyawan_id": "8db8c644-85b2-5327-97fa-5fa1cfee7801",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Dimas Pratama",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-010",
+    "karyawan_id": "a1eae53e-5cba-50f7-9211-4eec3c1d1f6d",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 12,
+    "nama (bantu)": "Putri Lestari",
+    "sisa (bantu)": 0,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-011",
+    "karyawan_id": "ab650d98-91c6-547c-b2a3-ad28dd51d16b",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 4,
+    "nama (bantu)": "Fajar Nugroho",
+    "sisa (bantu)": 8,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-012",
+    "karyawan_id": "c2b680c2-b18e-590b-88db-fa6b74e1a9fd",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 3,
+    "nama (bantu)": "Bambang Hartono",
+    "sisa (bantu)": 9,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-013",
+    "karyawan_id": "ceb0527e-312c-5e4c-b287-4f9ddb431a9a",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 8,
+    "nama (bantu)": "Wulan Sari",
+    "sisa (bantu)": 4,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-014",
+    "karyawan_id": "d79cc2a2-8d5e-5530-b55e-e063bf1542ca",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 7,
+    "nama (bantu)": "Yoga Permana",
+    "sisa (bantu)": 5,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-015",
+    "karyawan_id": "fd10f4fe-70a6-56dd-a004-ff67de44aa5b",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 4,
+    "nama (bantu)": "Rizky Ramadhan",
+    "sisa (bantu)": 8,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2024-016",
+    "karyawan_id": "46473e08-7d13-5dde-9cfd-0013e914dece",
+    "tahun": 2024,
+    "jatah_hari": 12,
+    "terpakai_hari": 5,
+    "nama (bantu)": "Nadia Safitri",
+    "sisa (bantu)": 7,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-001",
+    "karyawan_id": "1533d79b-4814-5d40-a1db-0f4df56eae1e",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 8,
+    "nama (bantu)": "Bayu Setiawan",
+    "sisa (bantu)": 4,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-002",
+    "karyawan_id": "391a65a7-cf37-5806-8e65-bba91e3c42e4",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Rina Kusumawardani",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-003",
+    "karyawan_id": "9e156b1b-7370-5e67-9dd3-e03340156757",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 7,
+    "nama (bantu)": "Maya Anggraini",
+    "sisa (bantu)": 5,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-004",
+    "karyawan_id": "ed0f5fa7-63fe-54c3-936e-342f8a31261c",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 5,
+    "nama (bantu)": "Hendra Gunawan",
+    "sisa (bantu)": 7,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-005",
+    "karyawan_id": "24173534-3de4-5c18-bc67-d3034545c061",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 10,
+    "nama (bantu)": "Siti Nurhaliza",
+    "sisa (bantu)": 2,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-006",
+    "karyawan_id": "22c1e137-9c79-5bae-a1e2-4dda8edffd71",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Agus Salim",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-007",
+    "karyawan_id": "3ce404ad-885e-51ef-bbf7-10345f2c2f04",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 8,
+    "nama (bantu)": "Andi Wijaya",
+    "sisa (bantu)": 4,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-008",
+    "karyawan_id": "1c5a8b5d-7360-584f-85bf-98b455254054",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 4,
+    "nama (bantu)": "Larasati Dewi",
+    "sisa (bantu)": 8,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-009",
+    "karyawan_id": "8db8c644-85b2-5327-97fa-5fa1cfee7801",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 5,
+    "nama (bantu)": "Dimas Pratama",
+    "sisa (bantu)": 7,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-010",
+    "karyawan_id": "a1eae53e-5cba-50f7-9211-4eec3c1d1f6d",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 11,
+    "nama (bantu)": "Putri Lestari",
+    "sisa (bantu)": 1,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-011",
+    "karyawan_id": "ab650d98-91c6-547c-b2a3-ad28dd51d16b",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 3,
+    "nama (bantu)": "Fajar Nugroho",
+    "sisa (bantu)": 9,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-012",
+    "karyawan_id": "c2b680c2-b18e-590b-88db-fa6b74e1a9fd",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 4,
+    "nama (bantu)": "Bambang Hartono",
+    "sisa (bantu)": 8,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-013",
+    "karyawan_id": "ceb0527e-312c-5e4c-b287-4f9ddb431a9a",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Wulan Sari",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-014",
+    "karyawan_id": "d79cc2a2-8d5e-5530-b55e-e063bf1542ca",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 6,
+    "nama (bantu)": "Yoga Permana",
+    "sisa (bantu)": 6,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-015",
+    "karyawan_id": "fd10f4fe-70a6-56dd-a004-ff67de44aa5b",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 2,
+    "nama (bantu)": "Rizky Ramadhan",
+    "sisa (bantu)": 10,
+    "kasus_uji (bantu)": null
+  },
+  {
+    "id": "kuota-2025-016",
+    "karyawan_id": "46473e08-7d13-5dde-9cfd-0013e914dece",
+    "tahun": 2025,
+    "jatah_hari": 12,
+    "terpakai_hari": 1,
+    "nama (bantu)": "Nadia Safitri",
+    "sisa (bantu)": 11,
+    "kasus_uji (bantu)": null
+  },
+  {
     "id": "45282eae-2c34-5802-828d-f87aa23e5c37",
     "karyawan_id": "1533d79b-4814-5d40-a1db-0f4df56eae1e",
     "tahun": 2026,

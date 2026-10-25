@@ -44,3 +44,9 @@ next-env.d.ts
 *serviceAccountKey*.json
 *firebase-adminsdk*.json
 
+# Modul petunjuk capstone (internal reference only)
+Modul-petunjuk-capstone/
+Modul-petunjuk-capestone/
+ERD_HRIS.md
+PRD_HRIS.docx.md
+

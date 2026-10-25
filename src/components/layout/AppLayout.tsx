@@ -1,19 +1,56 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
-import Link from "next/navigation";
+import React, { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import { getLeaveStatusOverrides, getSubmittedLeaves } from "@/lib/utils/leave-store";
+import { MoreHorizontal, LogOut } from "lucide-react";
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 interface AppLayoutProps {
   children: React.ReactNode;
+  fullBleed?: boolean;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, logout, login } = useAuth();
-  const [serverTimeFormatted, setServerTimeFormatted] = useState("Kamis, 15 Okt 2026 · Jam server 10.24 WIB");
+  const { user, loading, logout } = useAuth();
+  const [pendingBadgeCount, setPendingBadgeCount] = useState<number>(0);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Tutup dropdown menu saat klik di luar area
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    if (isProfileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isProfileMenuOpen]);
+
+  // Tutup dropdown menu saat menekan tombol Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -21,29 +58,110 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [user, loading, router]);
 
+  // Sinkronisasi badge menu Persetujuan secara dinamis & real-time dari Firestore (PRD Bab 7 & US-05/US-06)
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-      const wib = new Date(utc + 7 * 3600000);
+    if (!user || (user.peran !== "atasan" && user.peran !== "hrd")) {
+      setPendingBadgeCount(0);
+      return;
+    }
 
-      const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-      const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    const userUid = user.id;
+    const userSeedId = (user as any)?.seed_id;
+    const userNik = user.nik_karyawan;
+    const userDivId = user.divisi_id;
+    const userDivName = (user.divisi_nama || (user as any)?.["divisi (bantu)"] || "").toLowerCase();
+    const isAtasan = user.peran === "atasan";
+    const isHRD = user.peran === "hrd";
 
-      const dayName = days[wib.getDay()];
-      const dayDate = wib.getDate();
-      const monthName = months[wib.getMonth()];
-      const year = wib.getFullYear();
-      const hh = String(wib.getHours()).padStart(2, "0");
-      const mm = String(wib.getMinutes()).padStart(2, "0");
-
-      setServerTimeFormatted(`${dayName}, ${dayDate} ${monthName} ${year} · Jam server ${hh}.${mm} WIB`);
+    // Pengecualian diri sendiri (BR-09: Atasan/HRD tidak boleh menyetujui pengajuannya sendiri)
+    const isSelf = (item: any) => {
+      return (
+        (userUid && item.karyawan_id === userUid) ||
+        (userSeedId && item.karyawan_id === userSeedId) ||
+        (userNik && item.nik_karyawan === userNik) ||
+        (user.nama_lengkap &&
+          (item.nama_karyawan || item["pemohon (bantu)"] || item.nama)?.toLowerCase() ===
+            user.nama_lengkap.toLowerCase())
+      );
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    // Pengecekan divisi untuk Atasan (hanya divisi yang dipimpinnya)
+    const isDivisionMatch = (item: any) => {
+      if (userDivId && item.divisi_id === userDivId) return true;
+      const itemDiv = (item.divisi_nama || item.divisi || item["divisi (bantu)"] || "").toLowerCase();
+      if (!itemDiv) return false;
+      return itemDiv.includes(userDivName) || userDivName.includes(itemDiv);
+    };
+
+    const computeCount = (firestoreItems: any[] = []) => {
+      const overrides = getLeaveStatusOverrides();
+      const localSubmitted = getSubmittedLeaves();
+
+      const allMap = new Map<string, any>();
+      firestoreItems.forEach((d) => allMap.set(d.id, d));
+      localSubmitted.forEach((l) => {
+        if (!allMap.has(l.id)) allMap.set(l.id, l);
+      });
+
+      const items = Array.from(allMap.values());
+      let count = 0;
+
+      items.forEach((item) => {
+        if (isSelf(item)) return;
+
+        const currentStatus = overrides[item.id]?.status || item.status || "diajukan";
+
+        if (isAtasan) {
+          // Atasan: hanya dari divisinya yang berstatus 'diajukan'
+          if (isDivisionMatch(item) && currentStatus === "diajukan") {
+            count++;
+          }
+        } else if (isHRD) {
+          // HRD: status 'disetujui_atasan' atau 'diajukan' bila tahap atasan dilewati
+          const bypassAtasan = item.perlu_atasan === false || item.tahap_persetujuan === "hrd";
+          if (currentStatus === "disetujui_atasan" || (currentStatus === "diajukan" && bypassAtasan)) {
+            count++;
+          }
+        }
+      });
+
+      setPendingBadgeCount(count);
+    };
+
+    let unsubscribe: (() => void) | null = null;
+    let latestFsItems: any[] = [];
+
+    try {
+      const colRef = collection(db, "pengajuan_cuti");
+      unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          latestFsItems = [];
+          snapshot.forEach((doc) => {
+            latestFsItems.push({ id: doc.id, ...doc.data() });
+          });
+          computeCount(latestFsItems);
+        },
+        (error) => {
+          console.warn("Firestore onSnapshot error di AppLayout:", error);
+          computeCount([]);
+        }
+      );
+    } catch (err) {
+      console.warn("Gagal membuat onSnapshot di AppLayout:", err);
+      computeCount([]);
+    }
+
+    const handleStorageChange = () => {
+      computeCount(latestFsItems);
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [user]);
 
   if (loading || !user) {
     return (
@@ -56,6 +174,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // Tentukan sapaan dan role label
   const roleLabel = user.peran === "hrd" ? "HRD" : user.peran === "atasan" ? "Atasan" : "Karyawan";
   const divisiLabel = user.divisi_nama || user.jabatan;
+
+  const isFullBleed = fullBleed ?? (pathname === "/persetujuan");
 
   return (
     <div className="app-shell">
@@ -96,9 +216,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 className={`menu-item ${pathname === "/persetujuan" ? "active" : ""}`}
               >
                 <span>Persetujuan</span>
-                <span className="menu-badge">
-                  {user.peran === "atasan" ? "1" : "4"}
-                </span>
+                {pendingBadgeCount > 0 && (
+                  <span className="menu-badge">
+                    {pendingBadgeCount}
+                  </span>
+                )}
               </a>
             )}
 
@@ -138,61 +260,92 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </nav>
         </div>
 
-        {/* Profil Bawah Sidebar */}
-        <div className="sidebar-footer">
-          <p className="user-display-name">{user.nama_lengkap}</p>
-          <p className="user-display-role">{roleLabel} · {divisiLabel}</p>
+        {/* Profil Bawah Sidebar (User Profile Footer dengan Menu Dropdown) */}
+        <div className="sidebar-footer" ref={profileMenuRef}>
+          {/* Popover Menu Dropdown ke Atas (Option A) */}
+          {isProfileMenuOpen && (
+            <div className="profile-dropdown-menu" role="menu" aria-label="Menu Opsi Akun">
+              {/* Header Mini Info Akun */}
+              <div className="dropdown-user-header">
+                <p className="dropdown-user-name">{user.nama_lengkap}</p>
+                <p className="dropdown-user-email">{user.email || user.nik_karyawan}</p>
+                <span className="dropdown-user-tag">{roleLabel} · {divisiLabel}</span>
+              </div>
 
-          {/* Quick Role Switcher untuk Menguji Seluruh Halaman Wireframe 1, 2, 3, 4 */}
-          <div className="role-switch-container">
-            <span className="switch-caption">Ganti Akun Demo:</span>
-            <div className="switch-buttons">
+              <div className="dropdown-divider" />
+
+              {/* Info NIK Karyawan */}
+              <div className="dropdown-info-item">
+                <span className="dropdown-item-label">NIK:</span>
+                <span className="dropdown-item-val font-mono">{user.nik_karyawan}</span>
+              </div>
+
+              <div className="dropdown-divider" />
+
+              {/* Tombol Keluar Akun */}
               <button
                 type="button"
-                onClick={() => login("andi.wijaya@karsalintas.test", "Latihan#2026")}
-                className={`btn-role-mini ${user.peran === "karyawan" ? "active" : ""}`}
-                title="Lihat Tampilan Wireframe 1"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  logout();
+                }}
+                className="dropdown-logout-item"
               >
-                Karyawan (Andi)
-              </button>
-              <button
-                type="button"
-                onClick={() => login("maya.anggraini@karsalintas.test", "Latihan#2026")}
-                className={`btn-role-mini ${user.peran === "atasan" ? "active" : ""}`}
-                title="Lihat Tampilan Wireframe 3 (Persetujuan Cuti)"
-              >
-                Atasan (Maya)
-              </button>
-              <button
-                type="button"
-                onClick={() => login("rina.kusumawardani@karsalintas.test", "Latihan#2026")}
-                className={`btn-role-mini ${user.peran === "hrd" ? "active" : ""}`}
-                title="Lihat Tampilan Wireframe 2 & 4 (Absensi & Laporan)"
-              >
-                HRD (Rina)
+                <LogOut size={14} />
+                <span>Keluar Akun</span>
               </button>
             </div>
-          </div>
+          )}
 
-          <button onClick={logout} className="btn-signout">
-            Keluar akun
-          </button>
+          {/* Baris Utama Profil (Avatar, Nama, Jabatan & Titik Tiga) */}
+          <div
+            className={`profile-main-row ${isProfileMenuOpen ? "active" : ""}`}
+            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+            title="Klik untuk membuka menu akun"
+          >
+            <div className="profile-info-left">
+              {user.foto_url || (user as any).foto ? (
+                <img
+                  src={user.foto_url || (user as any).foto}
+                  alt={user.nama_lengkap}
+                  className="profile-avatar-img"
+                />
+              ) : (
+                <div
+                  className="profile-avatar-circle"
+                  aria-label={user.nama_lengkap}
+                >
+                  {getInitials(user.nama_lengkap)}
+                </div>
+              )}
+              <div className="profile-text-wrap">
+                <p className="profile-user-name" title={user.nama_lengkap}>
+                  {user.nama_lengkap}
+                </p>
+                <p className="profile-user-role" title={`${roleLabel} · ${divisiLabel}`}>
+                  {roleLabel} · {divisiLabel}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`profile-more-btn ${isProfileMenuOpen ? "active" : ""}`}
+              title="Menu opsi akun"
+              aria-label="Menu opsi akun"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsProfileMenuOpen(!isProfileMenuOpen);
+              }}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Konten Utama */}
-      <main className="app-main">
-        {/* Header Kanan Atas Sesuai Wireframe */}
-        <header className="main-header">
-          <div>
-            <h2 className="header-title">
-              Selamat {new Date().getHours() < 12 ? "pagi" : new Date().getHours() < 16 ? "siang" : "sore"},{" "}
-              {user.nama_lengkap.split(" ")[0]}
-            </h2>
-            <p className="header-time">{serverTimeFormatted}</p>
-          </div>
-        </header>
-
+      <main className={isFullBleed ? "app-main-fullbleed" : "app-main"}>
         {children}
       </main>
     </div>

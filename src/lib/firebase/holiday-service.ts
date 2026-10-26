@@ -118,7 +118,19 @@ async function recordAuditLog(
  * Mengambil data hari_libur dari Firestore Database.
  * Jika Firestore kosong, gunakan data seed awal.
  */
-export async function fetchHolidaysFromFirestore(): Promise<HariLibur[]> {
+let cachedHolidays: HariLibur[] | null = null;
+let lastFetchHolidaysTime = 0;
+
+/**
+ * Mengambil data hari_libur dari Firestore Database (dengan in-memory caching).
+ * Jika Firestore kosong, gunakan data seed awal.
+ */
+export async function fetchHolidaysFromFirestore(forceRefresh = false): Promise<HariLibur[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedHolidays && (now - lastFetchHolidaysTime < 30000)) {
+    return cachedHolidays;
+  }
+
   try {
     const snap = await getDocs(collection(db, "hari_libur"));
     if (!snap.empty) {
@@ -139,13 +151,18 @@ export async function fetchHolidaysFromFirestore(): Promise<HariLibur[]> {
       remoteList.forEach((r) => map.set(r.tanggal, r));
       const combined = Array.from(map.values()).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
+      cachedHolidays = combined;
+      lastFetchHolidaysTime = Date.now();
       saveStoredHolidays(combined);
       return combined;
     }
   } catch (err) {
     console.warn("Koneksi Firestore hari_libur fallback ke cache lokal:", err);
   }
-  return getStoredHolidays();
+  const localList = getStoredHolidays();
+  cachedHolidays = localList;
+  lastFetchHolidaysTime = Date.now();
+  return localList;
 }
 
 /**

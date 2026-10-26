@@ -1115,7 +1115,7 @@ export default function DashboardPage() {
   }, [user]);
 
   return (
-    <AppLayout>
+    <>
       {/* Header Dashboard Utama */}
       <header className="main-header">
         <div>
@@ -1950,6 +1950,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </AppLayout>
+    </>
   );
 }

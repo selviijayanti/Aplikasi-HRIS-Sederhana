@@ -840,3 +840,82 @@
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   MOBILE FRIENDLY RESPONSIVE STYLES - SLIP GAJI
+   ========================================================================== */
+@media (max-width: 768px) {
+  .slip-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .payroll-toolbar-card {
+    padding: 1rem 0.85rem;
+  }
+
+  .payroll-toolbar-row-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .payroll-controls-left {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .payroll-select-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .payroll-dropdown {
+    width: 100%;
+  }
+
+  .payroll-status-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+  }
+
+  .payroll-actions-group {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .payroll-action-btn,
+  .payroll-btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .slip-modal-box {
+    width: calc(100vw - 1.5rem) !important;
+    max-width: 100% !important;
+    padding: 1.25rem 1rem !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .slip-printable-card {
+    padding: 1rem 0.85rem !important;
+  }
+
+  .slip-modal-btn-row {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .slip-modal-btn-row button {
+    width: 100%;
+    justify-content: center;
+  }
+}

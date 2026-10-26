@@ -464,9 +464,10 @@ export default function AttendanceCalendarView({
       </div>
 
       {/* 2. GRID KALENDER BULANAN (7 KOLOM SENIN - MINGGU) */}
-      <div className="calendar-grid-card">
-        {/* Header Nama Hari */}
-        <div className="calendar-day-header-row">
+      <div className="calendar-grid-scroll-wrap">
+        <div className="calendar-grid-card">
+          {/* Header Nama Hari */}
+          <div className="calendar-day-header-row">
           {DAY_NAMES.map((name, i) => (
             <div
               key={name}
@@ -611,6 +612,7 @@ export default function AttendanceCalendarView({
           })}
         </div>
       </div>
+    </div>
 
       {/* 3. MODAL DETAIL POPUP SAAT TANGGAL DIKLIK */}
       {activeModalData && (
@@ -1307,6 +1309,42 @@ export default function AttendanceCalendarView({
           text-align: center;
           padding: 2rem;
           color: #64748b;
+        }
+
+        .calendar-grid-scroll-wrap {
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+          .calendar-top-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+            padding: 0.85rem;
+          }
+
+          .cal-nav-left {
+            justify-content: space-between;
+            width: 100%;
+          }
+
+          .cal-legend-tags {
+            width: 100%;
+            gap: 0.5rem;
+          }
+
+          .calendar-grid-card {
+            min-width: 620px;
+          }
+
+          .cal-detail-modal {
+            width: calc(100vw - 1.5rem) !important;
+            max-width: 100% !important;
+            padding: 1.25rem 1rem !important;
+          }
         }
       `}</style>
     </div>

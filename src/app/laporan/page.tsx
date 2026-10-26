@@ -998,17 +998,18 @@ export default function LaporanPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6 p-6 laporan-container">
+    <>
+      <div className="space-y-6 laporan-container">
         {/* 1. HEADER & FILTER TOOLBAR */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
+        {/* 1. HEADER & FILTER TOOLBAR */}
+        <div className="laporan-header-wrap">
+          <div className="laporan-title-col">
             <h1 className="page-header-title text-2xl font-bold text-slate-800">Laporan Kehadiran, Cuti, dan Gaji</h1>
             <p className="page-header-sub text-sm text-slate-500">
               Analisis performa presensi, pemanfaatan cuti, dan rekapitulasi penggajian periode {activePeriod.label}.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="laporan-filter-toolbar">
             {/* Dropdown Periode */}
             <div className="filter-group">
               <label className="filter-label">Periode</label>
@@ -1055,7 +1056,6 @@ export default function LaporanPage() {
               className="btn-export-csv"
               title="Unduh rekap data laporan ke berkas CSV"
             >
-              <span>Unduh CSV</span>
               <svg
                 className="export-icon"
                 width="16"
@@ -1071,6 +1071,7 @@ export default function LaporanPage() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
+              <span>Unduh CSV</span>
             </button>
           </div>
         </div>
@@ -1116,120 +1117,156 @@ export default function LaporanPage() {
         {/* 3. CHARTS / GRAFIK (WAJIB 2 KOLOM BERDAMPINGAN DENGAN TOOLTIP INTERAKTIF) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 two-col-grid">
           {/* Grafik 1: Kehadiran per minggu */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative">
-            <h3 className="section-title">Kehadiran per minggu (orang-hari)</h3>
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-visible">
+            <div className="chart-header-block mb-3">
+              <h3 className="section-title">Kehadiran per minggu (orang-hari)</h3>
+              <p className="chart-sub-caption">Data presensi mingguan · Skala 0–80 orang-hari</p>
+            </div>
             
-            <div className="chart-container">
-              <div className="chart-bars-wrap">
-                {activePeriod.attendanceData.map((w, idx) => (
-                  <div
-                    key={idx}
-                    className="bar-col"
-                    onMouseEnter={() => setHoveredWeekIdx(idx)}
-                    onMouseLeave={() => setHoveredWeekIdx(null)}
-                  >
-                    {/* Tooltip Interaktif Persis Standar Dashboard (Screenshot) */}
-                    {hoveredWeekIdx === idx && (
-                      <div
-                        className={`chart-tooltip-popover ${
-                          idx === 0 ? "col-start" : idx === activePeriod.attendanceData.length - 1 ? "col-end" : ""
-                        }`}
-                        role="tooltip"
-                        style={{
-                          left: idx === 0 ? "0" : idx === activePeriod.attendanceData.length - 1 ? "auto" : "50%",
-                          right: idx === activePeriod.attendanceData.length - 1 ? "0" : "auto",
-                          transform: idx === 0 || idx === activePeriod.attendanceData.length - 1 ? "none" : "translateX(-50%)",
-                        }}
-                      >
-                        <div className="tooltip-header">
-                          <span className="tooltip-title">{w.isMonth ? w.label : `Minggu ${idx + 1}`}</span>
-                          <span className="tooltip-range">{w.range}</span>
-                        </div>
-                        <div className="tooltip-body">
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot tepat-waktu"></span>
-                              Hadir Tepat Waktu:
-                            </span>
-                            <strong className="tooltip-val">{w.tepatWaktu}</strong>
+            <div className="chart-body-layout">
+              <div className="chart-canvas-wrapper">
+                {/* Sumbu Y (Angka Skala 0-80) */}
+                <div className="chart-y-axis" aria-hidden="true">
+                  <span className="y-tick-label">80</span>
+                  <span className="y-tick-label">60</span>
+                  <span className="y-tick-label">40</span>
+                  <span className="y-tick-label">20</span>
+                  <span className="y-tick-label">0</span>
+                </div>
+
+                {/* Area Plot Batang */}
+                <div className="chart-plot-area">
+                  {/* Garis Bantu Horizontal (Gridlines) */}
+                  <div className="chart-gridlines" aria-hidden="true">
+                    <div className="grid-line" style={{ bottom: "100%" }} />
+                    <div className="grid-line" style={{ bottom: "75%" }} />
+                    <div className="grid-line" style={{ bottom: "50%" }} />
+                    <div className="grid-line" style={{ bottom: "25%" }} />
+                    <div className="grid-line baseline" style={{ bottom: "0%" }} />
+                  </div>
+
+                  {/* Grid Kolom Batang */}
+                  <div className="chart-columns-grid">
+                  {activePeriod.attendanceData.map((w, idx) => (
+                    <div
+                      key={idx}
+                      className="bar-col"
+                      onMouseEnter={() => setHoveredWeekIdx(idx)}
+                      onMouseLeave={() => setHoveredWeekIdx(null)}
+                    >
+                      {/* Tooltip Interaktif Persis Standar Dashboard (Screenshot) */}
+                      {hoveredWeekIdx === idx && (
+                        <div
+                          className={`chart-tooltip-popover ${
+                            idx === 0 ? "col-start" : idx === activePeriod.attendanceData.length - 1 ? "col-end" : ""
+                          }`}
+                          role="tooltip"
+                          style={{
+                            left: idx === 0 ? "0" : idx === activePeriod.attendanceData.length - 1 ? "auto" : "50%",
+                            right: idx === activePeriod.attendanceData.length - 1 ? "0" : "auto",
+                            transform: idx === 0 || idx === activePeriod.attendanceData.length - 1 ? "none" : "translateX(-50%)",
+                          }}
+                        >
+                          <div className="tooltip-header">
+                            <span className="tooltip-title">{w.isMonth ? w.label : `Minggu ${idx + 1}`}</span>
+                            <span className="tooltip-range">{w.range}</span>
                           </div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot terlambat"></span>
-                              Terlambat:
-                            </span>
-                            <strong className="tooltip-val">{w.terlambat}</strong>
-                          </div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot cuti-izin"></span>
-                              Cuti, Sakit, Izin:
-                            </span>
-                            <strong className="tooltip-val">{w.cutiIzin}</strong>
-                          </div>
-                          {w.tanpaKeterangan > 0 && (
+                          <div className="tooltip-body">
                             <div className="tooltip-row">
                               <span className="tooltip-dot-wrap">
-                                <span className="tooltip-dot tanpa-keterangan"></span>
-                                Tanpa Keterangan:
+                                <span className="tooltip-dot tepat-waktu"></span>
+                                Hadir Tepat Waktu:
                               </span>
-                              <strong className="tooltip-val">{w.tanpaKeterangan}</strong>
+                              <strong className="tooltip-val">{w.tepatWaktu}</strong>
                             </div>
-                          )}
-                          <div className="tooltip-divider" />
-                          <div className="tooltip-footer-row">
-                            <span>Total: <strong>{w.total} orang-hari</strong></span>
-                            <span>Tepat: <strong>{w.persenTepat}</strong></span>
+                            <div className="tooltip-row">
+                              <span className="tooltip-dot-wrap">
+                                <span className="tooltip-dot terlambat"></span>
+                                Terlambat:
+                              </span>
+                              <strong className="tooltip-val">{w.terlambat}</strong>
+                            </div>
+                            <div className="tooltip-row">
+                              <span className="tooltip-dot-wrap">
+                                <span className="tooltip-dot cuti-izin"></span>
+                                Cuti, Sakit, Izin:
+                              </span>
+                              <strong className="tooltip-val">{w.cutiIzin}</strong>
+                            </div>
+                            {w.tanpaKeterangan > 0 && (
+                              <div className="tooltip-row">
+                                <span className="tooltip-dot-wrap">
+                                  <span className="tooltip-dot tanpa-keterangan"></span>
+                                  Tanpa Keterangan:
+                                </span>
+                                <strong className="tooltip-val">{w.tanpaKeterangan}</strong>
+                              </div>
+                            )}
+                            <div className="tooltip-divider" />
+                            <div className="tooltip-footer-row">
+                              <span>Total: <strong>{w.total} orang-hari</strong></span>
+                              <span>Tepat: <strong>{w.persenTepat}</strong></span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Batang-batang Berdampingan Satu-Satu */}
-                    <div className="week-grouped-bars-laporan">
-                      {/* 1. Tepat Waktu */}
-                      <div className="laporan-single-col">
-                        <span className="laporan-bar-val">{w.tepatWaktu}</span>
-                        <div
-                          className="laporan-bar-pill bar-tepat-waktu"
-                          style={{ height: `${Math.min(100, Math.max(6, (w.tepatWaktu / 80) * 100))}%` }}
-                          title={`Hadir Tepat Waktu: ${w.tepatWaktu}`}
-                        />
-                      </div>
-
-                      {/* 2. Terlambat */}
-                      <div className="laporan-single-col">
-                        <span className="laporan-bar-val">{w.terlambat}</span>
-                        <div
-                          className="laporan-bar-pill bar-terlambat"
-                          style={{ height: `${Math.min(100, Math.max(6, (w.terlambat / 80) * 100))}%` }}
-                          title={`Terlambat: ${w.terlambat}`}
-                        />
-                      </div>
-
-                      {/* 3. Cuti & Izin */}
-                      <div className="laporan-single-col">
-                        <span className="laporan-bar-val">{w.cutiIzin}</span>
-                        <div
-                          className="laporan-bar-pill bar-cuti-izin"
-                          style={{ height: `${Math.min(100, Math.max(6, (w.cutiIzin / 80) * 100))}%` }}
-                          title={`Cuti & Izin: ${w.cutiIzin}`}
-                        />
-                      </div>
-
-                      {/* 4. Tanpa Keterangan (jika ada) */}
-                      {w.tanpaKeterangan > 0 && (
+                      {/* Batang-batang Berdampingan Satu-Satu */}
+                      <div className="week-grouped-bars-laporan">
+                        {/* 1. Tepat Waktu */}
                         <div className="laporan-single-col">
-                          <span className="laporan-bar-val">{w.tanpaKeterangan}</span>
+                          <span className="laporan-bar-val">{w.tepatWaktu}</span>
                           <div
-                            className="laporan-bar-pill bar-tanpa-keterangan"
-                            style={{ height: `${Math.min(100, Math.max(6, (w.tanpaKeterangan / 80) * 100))}%` }}
-                            title={`Tanpa Keterangan: ${w.tanpaKeterangan}`}
+                            className="laporan-bar-pill bar-tepat-waktu"
+                            style={{ height: `${Math.min(100, Math.max(6, (w.tepatWaktu / 80) * 100))}%` }}
+                            title={`Hadir Tepat Waktu: ${w.tepatWaktu}`}
                           />
                         </div>
-                      )}
+
+                        {/* 2. Terlambat */}
+                        <div className="laporan-single-col">
+                          <span className="laporan-bar-val">{w.terlambat}</span>
+                          <div
+                            className="laporan-bar-pill bar-terlambat"
+                            style={{ height: `${Math.min(100, Math.max(6, (w.terlambat / 80) * 100))}%` }}
+                            title={`Terlambat: ${w.terlambat}`}
+                          />
+                        </div>
+
+                        {/* 3. Cuti & Izin */}
+                        <div className="laporan-single-col">
+                          <span className="laporan-bar-val">{w.cutiIzin}</span>
+                          <div
+                            className="laporan-bar-pill bar-cuti-izin"
+                            style={{ height: `${Math.min(100, Math.max(6, (w.cutiIzin / 80) * 100))}%` }}
+                            title={`Cuti & Izin: ${w.cutiIzin}`}
+                          />
+                        </div>
+
+                        {/* 4. Tanpa Keterangan (jika ada) */}
+                        {w.tanpaKeterangan > 0 && (
+                          <div className="laporan-single-col">
+                            <span className="laporan-bar-val">{w.tanpaKeterangan}</span>
+                            <div
+                              className="laporan-bar-pill bar-tanpa-keterangan"
+                              style={{ height: `${Math.min(100, Math.max(6, (w.tanpaKeterangan / 80) * 100))}%` }}
+                              title={`Tanpa Keterangan: ${w.tanpaKeterangan}`}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="bar-lbl">{w.label}</span>
+                  ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sumbu X (Label di bawah garis dasar) */}
+              <div className="chart-x-axis-row">
+                {activePeriod.attendanceData.map((w, idx) => (
+                  <div key={idx} className="x-axis-col-label">
+                    <span className="x-axis-title">{w.isMonth ? w.label : `Minggu ${idx + 1}`}</span>
+                    <span className="x-axis-sub">{w.label}</span>
                   </div>
                 ))}
               </div>
@@ -1245,92 +1282,139 @@ export default function LaporanPage() {
           </div>
 
           {/* Grafik 2: Cuti Disetujui per Divisi */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative">
-            <h3 className="section-title">Hari cuti, sakit, izin disetujui per divisi</h3>
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-visible">
+            <div className="chart-header-block mb-3">
+              <h3 className="section-title">Hari cuti, sakit, izin disetujui per divisi</h3>
+              <p className="chart-sub-caption">Pemanfaatan izin per divisi · Skala 0–8 hari kerja</p>
+            </div>
 
-            <div className="chart-container">
-              <div className="grouped-bars-wrap">
-                {activePeriod.leaveDivisionData.map((d, idx) => (
-                  <div
-                    key={idx}
-                    className="divisi-col"
-                    onMouseEnter={() => setHoveredDivisiIdx(idx)}
-                    onMouseLeave={() => setHoveredDivisiIdx(null)}
-                  >
-                    {/* Tooltip Interaktif Persis Standar Dashboard (Screenshot) */}
-                    {hoveredDivisiIdx === idx && (
-                      <div
-                        className={`chart-tooltip-popover ${
-                          idx === 0 ? "col-start" : idx === activePeriod.leaveDivisionData.length - 1 ? "col-end" : ""
-                        }`}
-                        role="tooltip"
-                        style={{
-                          left: idx === 0 ? "0" : idx === activePeriod.leaveDivisionData.length - 1 ? "auto" : "50%",
-                          right: idx === activePeriod.leaveDivisionData.length - 1 ? "0" : "auto",
-                          transform: idx === 0 || idx === activePeriod.leaveDivisionData.length - 1 ? "none" : "translateX(-50%)",
-                        }}
-                      >
-                        <div className="tooltip-header">
-                          <span className="tooltip-title">{d.divisi}</span>
-                          <span className="tooltip-range">Hari Disetujui</span>
-                        </div>
-                        <div className="tooltip-body">
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot agustus"></span>
-                              Agustus:
-                            </span>
-                            <strong className="tooltip-val">{d.agustus}</strong>
-                          </div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot september"></span>
-                              September:
-                            </span>
-                            <strong className="tooltip-val">{d.september}</strong>
-                          </div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-dot-wrap">
-                              <span className="tooltip-dot oktober"></span>
-                              Oktober:
-                            </span>
-                            <strong className="tooltip-val">{d.oktober}</strong>
-                          </div>
-                          <div className="tooltip-divider" />
-                          <div className="tooltip-footer-row">
-                            <span>Total Disetujui:</span>
-                            <strong>{d.total} hari</strong>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+            <div className="chart-body-layout">
+              <div className="chart-canvas-wrapper">
+                {/* Sumbu Y (Angka Skala 0-8) */}
+                <div className="chart-y-axis" aria-hidden="true">
+                  <span className="y-tick-label">8</span>
+                  <span className="y-tick-label">6</span>
+                  <span className="y-tick-label">4</span>
+                  <span className="y-tick-label">2</span>
+                  <span className="y-tick-label">0</span>
+                </div>
 
-                    {/* Group Bars */}
-                    <div className="group-bars">
-                      <div
-                        className="g-bar agustus"
-                        style={{ height: d.heightAgustus }}
-                      >
-                        {d.agustus > 0 ? d.agustus : ""}
-                      </div>
-                      <div
-                        className="g-bar september"
-                        style={{ height: d.heightSeptember }}
-                      >
-                        {d.september > 0 ? d.september : ""}
-                      </div>
-                      <div
-                        className="g-bar oktober"
-                        style={{ height: d.heightOktober }}
-                      >
-                        {d.oktober > 0 ? d.oktober : ""}
+                {/* Area Plot Batang */}
+                <div className="chart-plot-area">
+                  {/* Garis Bantu Horizontal (Gridlines) */}
+                  <div className="chart-gridlines" aria-hidden="true">
+                    <div className="grid-line" style={{ bottom: "100%" }} />
+                    <div className="grid-line" style={{ bottom: "75%" }} />
+                    <div className="grid-line" style={{ bottom: "50%" }} />
+                    <div className="grid-line" style={{ bottom: "25%" }} />
+                    <div className="grid-line baseline" style={{ bottom: "0%" }} />
+                  </div>
+
+                  {/* Grid Kolom Batang */}
+                  <div className="chart-columns-grid">
+                  {activePeriod.leaveDivisionData.map((d, idx) => (
+                    <div
+                      key={idx}
+                      className="bar-col divisi-col"
+                      onMouseEnter={() => setHoveredDivisiIdx(idx)}
+                      onMouseLeave={() => setHoveredDivisiIdx(null)}
+                    >
+                      {/* Tooltip Interaktif Persis Standar Dashboard (Screenshot) */}
+                      {hoveredDivisiIdx === idx && (
+                        <div
+                          className={`chart-tooltip-popover ${
+                            idx === 0 ? "col-start" : idx === activePeriod.leaveDivisionData.length - 1 ? "col-end" : ""
+                          }`}
+                          role="tooltip"
+                          style={{
+                            left: idx === 0 ? "0" : idx === activePeriod.leaveDivisionData.length - 1 ? "auto" : "50%",
+                            right: idx === activePeriod.leaveDivisionData.length - 1 ? "0" : "auto",
+                            transform: idx === 0 || idx === activePeriod.leaveDivisionData.length - 1 ? "none" : "translateX(-50%)",
+                          }}
+                        >
+                          <div className="tooltip-header">
+                            <span className="tooltip-title">{d.divisi}</span>
+                            <span className="tooltip-range">Hari Disetujui</span>
+                          </div>
+                          <div className="tooltip-body">
+                            <div className="tooltip-row">
+                              <span className="tooltip-dot-wrap">
+                                <span className="tooltip-dot agustus"></span>
+                                Agustus:
+                              </span>
+                              <strong className="tooltip-val">{d.agustus}</strong>
+                            </div>
+                            <div className="tooltip-row">
+                              <span className="tooltip-dot-wrap">
+                                <span className="tooltip-dot september"></span>
+                                September:
+                              </span>
+                              <strong className="tooltip-val">{d.september}</strong>
+                            </div>
+                            <div className="tooltip-row">
+                              <span className="tooltip-dot-wrap">
+                                <span className="tooltip-dot oktober"></span>
+                                Oktober:
+                              </span>
+                              <strong className="tooltip-val">{d.oktober}</strong>
+                            </div>
+                            <div className="tooltip-divider" />
+                            <div className="tooltip-footer-row">
+                              <span>Total Disetujui:</span>
+                              <strong>{d.total} hari</strong>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Batang-batang Berdampingan Selaras dengan Chart Kehadiran */}
+                      <div className="week-grouped-bars-laporan">
+                        {/* 1. Agustus */}
+                        <div className="laporan-single-col">
+                          <span className="laporan-bar-val">{d.agustus}</span>
+                          <div
+                            className="laporan-bar-pill bar-agustus"
+                            style={{ height: `${Math.min(100, Math.max(6, (d.agustus / 8) * 100))}%` }}
+                            title={`Agustus: ${d.agustus} hari`}
+                          />
+                        </div>
+
+                        {/* 2. September */}
+                        <div className="laporan-single-col">
+                          <span className="laporan-bar-val">{d.september}</span>
+                          <div
+                            className="laporan-bar-pill bar-september"
+                            style={{ height: `${Math.min(100, Math.max(6, (d.september / 8) * 100))}%` }}
+                            title={`September: ${d.september} hari`}
+                          />
+                        </div>
+
+                        {/* 3. Oktober */}
+                        <div className="laporan-single-col">
+                          <span className="laporan-bar-val">{d.oktober}</span>
+                          <div
+                            className="laporan-bar-pill bar-oktober"
+                            style={{ height: `${Math.min(100, Math.max(6, (d.oktober / 8) * 100))}%` }}
+                            title={`Oktober: ${d.oktober} hari`}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <span className="bar-lbl">{d.divisi}</span>
+                  ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sumbu X (Label di bawah garis dasar) */}
+              <div className="chart-x-axis-row">
+                {activePeriod.leaveDivisionData.map((d, idx) => (
+                  <div key={idx} className="x-axis-col-label">
+                    <span className="x-axis-title">{d.divisi}</span>
                   </div>
                 ))}
               </div>
 
+              {/* Legend */}
               <div className="chart-legend">
                 <span className="legend-item"><span className="legend-box agustus"></span> Agustus</span>
                 <span className="legend-item"><span className="legend-box september"></span> September</span>
@@ -1714,30 +1798,92 @@ export default function LaporanPage() {
         }
 
         .section-title {
-          font-size: 0.8125rem;
+          font-size: 0.875rem;
           font-weight: 700;
           color: #111827;
-          margin-bottom: 1.25rem;
+          margin: 0;
         }
 
-        .chart-container {
+        .chart-sub-caption {
+          font-size: 0.75rem;
+          color: #64748b;
+          margin: 0.2rem 0 0 0;
+        }
+
+        .chart-body-layout {
           display: flex;
           flex-direction: column;
-          height: 220px;
-          justify-content: space-between;
-          position: relative;
-        }
-
-        .chart-bars-wrap,
-        .grouped-bars-wrap {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-around;
-          height: 160px;
-          border-bottom: 1px solid #e5e7eb;
-          padding-bottom: 0.25rem;
+          gap: 0.5rem;
           position: relative;
           overflow: visible;
+        }
+
+        .chart-canvas-wrapper {
+          display: flex;
+          align-items: flex-end;
+          gap: 0.85rem;
+          padding: 1.25rem 0.5rem 0 0;
+          position: relative;
+          overflow: visible;
+        }
+
+        /* Sumbu Y (Kiri) */
+        .chart-y-axis {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          align-items: flex-end;
+          height: 160px;
+          width: 24px;
+          flex-shrink: 0;
+          padding-bottom: 2px;
+          user-select: none;
+        }
+
+        .y-tick-label {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: #94a3b8;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+        }
+
+        /* Area Plot Batang */
+        .chart-plot-area {
+          flex: 1;
+          position: relative;
+          height: 160px;
+          overflow: visible;
+        }
+
+        /* Gridlines Horizontal */
+        .chart-gridlines {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+
+        .grid-line {
+          position: absolute;
+          left: 0;
+          right: 0;
+          border-top: 1px dashed #e2e8f0;
+        }
+
+        .grid-line.baseline {
+          bottom: 0 !important;
+          border-top: none;
+          border-bottom: 2px solid #cbd5e1;
+        }
+
+        /* Grid 4 Kolom Batang */
+        .chart-columns-grid {
+          position: relative;
+          height: 100%;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+          z-index: 2;
         }
 
         .bar-col,
@@ -1745,11 +1891,47 @@ export default function LaporanPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
-          height: 100%;
           justify-content: flex-end;
+          height: 100%;
           position: relative;
           cursor: pointer;
+          border-radius: 6px;
+          padding: 0.25rem 0.25rem 0;
+          transition: background-color 0.2s ease;
+        }
+
+        .bar-col:hover,
+        .divisi-col:hover {
+          background-color: rgba(241, 245, 249, 0.65);
+        }
+
+        /* Sumbu X (Label di bawah garis dasar) */
+        .chart-x-axis-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+          margin-left: calc(24px + 0.85rem);
+          padding-top: 0.65rem;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .x-axis-col-label {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .x-axis-title {
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: #1e293b;
+          line-height: 1.25;
+        }
+
+        .x-axis-sub {
+          font-size: 0.625rem;
+          color: #64748b;
         }
 
         .bar-col .week-grouped-bars-laporan,
@@ -1774,7 +1956,7 @@ export default function LaporanPage() {
           border-radius: 8px;
           padding: 0.65rem 0.85rem;
           box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
-          z-index: 50;
+          z-index: 100;
           min-width: 195px;
           pointer-events: none;
           animation: fadeIn 0.15s ease;
@@ -1964,9 +2146,31 @@ export default function LaporanPage() {
           box-shadow: 0 2px 4px rgba(244, 63, 94, 0.2);
         }
 
+        .laporan-bar-pill.bar-agustus {
+          background: linear-gradient(180deg, #94a3b8 0%, #64748b 45%, #475569 100%);
+          box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
+        }
+
+        .laporan-bar-pill.bar-september {
+          background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 45%, #0284c7 100%);
+          box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2);
+        }
+
+        .laporan-bar-pill.bar-oktober {
+          background: linear-gradient(180deg, #3b82f6 0%, #2563eb 45%, #1d4ed8 100%);
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+        }
+
+        .tooltip-dot.agustus { background-color: #64748b; }
+        .tooltip-dot.september { background-color: #0284c7; }
+        .tooltip-dot.oktober { background-color: #1d4ed8; }
+
         .bar-lbl {
           font-size: 0.6875rem;
           color: #6b7280;
+          text-align: center;
+          line-height: 1.25;
+          max-width: 100px;
         }
 
         .group-bars {
@@ -1974,31 +2178,6 @@ export default function LaporanPage() {
           align-items: flex-end;
           gap: 4px;
           height: 130px;
-        }
-
-        .g-bar {
-          width: 14px;
-          border-radius: 2px 2px 0 0;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          font-size: 0.625rem;
-          color: #374151;
-          padding-top: 2px;
-          font-weight: 600;
-        }
-
-        .g-bar.agustus {
-          background-color: #cbd5e1;
-        }
-
-        .g-bar.september {
-          background-color: #93c5fd;
-        }
-
-        .g-bar.oktober {
-          background-color: #2563eb;
-          color: #ffffff;
         }
 
         .chart-legend {
@@ -2041,23 +2220,121 @@ export default function LaporanPage() {
         }
 
         .legend-box.agustus {
-          background-color: #cbd5e1;
+          background: linear-gradient(135deg, #94a3b8, #475569);
         }
 
         .legend-box.september {
-          background-color: #93c5fd;
+          background: linear-gradient(135deg, #38bdf8, #0284c7);
         }
 
         .legend-box.oktober {
-          background-color: #2563eb;
+          background: linear-gradient(135deg, #3b82f6, #1d4ed8);
         }
 
         .font-semibold {
           font-weight: 600;
         }
+
+        /* --- Header & Filter Toolbar Layout --- */
+        .laporan-header-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        @media (min-width: 1024px) {
+          .laporan-header-wrap {
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: space-between;
+          }
+        }
+
+        .laporan-title-col {
+          min-width: 280px;
+          flex: 1;
+        }
+
+        .laporan-filter-toolbar {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: nowrap;
+          flex-shrink: 0;
+        }
+
+        .chart-scroll-wrap {
+          width: 100%;
+          overflow: visible;
+          position: relative;
+        }
+
+        @media (max-width: 768px) {
+          .chart-scroll-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.5rem;
+          }
+          .laporan-filter-toolbar {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+          }
+
+          .laporan-filter-toolbar .filter-group {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .laporan-filter-toolbar .filter-select {
+            flex: 1;
+            min-width: 0;
+            max-width: calc(100% - 60px);
+          }
+
+          .btn-export-csv {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.75rem;
+          }
+
+          .metric-card {
+            padding: 0.85rem !important;
+          }
+
+          .metric-big-number {
+            font-size: 1.35rem !important;
+          }
+
+          .chart-body-layout {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.5rem;
+          }
+
+          .chart-canvas-wrapper,
+          .chart-x-axis-row {
+            min-width: 320px;
+          }
+
+          .two-col-grid {
+            gap: 1rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .kpi-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
       `,
         }}
       />
-    </AppLayout>
+    </>
   );
 }

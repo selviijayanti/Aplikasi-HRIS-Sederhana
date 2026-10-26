@@ -475,7 +475,7 @@ export default function KaryawanPage() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="header-row">
         <div>
           <h2 className="page-title">Data Karyawan</h2>
@@ -1771,7 +1771,51 @@ export default function KaryawanPage() {
           line-height: 1.25;
           display: block;
         }
+
+        @media (max-width: 768px) {
+          .header-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.75rem !important;
+          }
+          .btn-add-karyawan {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+          .filter-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+            padding: 0.85rem !important;
+          }
+          .search-wrap {
+            width: 100% !important;
+          }
+          .filter-control {
+            width: 100% !important;
+            justify-content: space-between !important;
+          }
+          .filter-select {
+            flex: 1 !important;
+          }
+          .modal-box {
+            width: calc(100vw - 1.5rem) !important;
+            max-width: 100% !important;
+            padding: 1.25rem 1rem !important;
+            max-height: 90vh;
+            overflow-y: auto;
+          }
+          .modal-btn-row {
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 0.5rem !important;
+          }
+          .modal-btn-row button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
       `}</style>
-    </AppLayout>
+    </>
   );
 }

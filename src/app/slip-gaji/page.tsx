@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase/config";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import slipGajiData from "../../../data/seeds/slip_gaji.json";
 import profilesData from "../../../data/seeds/profiles.json";
+import { sendEmailNotification } from "@/lib/email/email-service";
 import "./slip-gaji.css";
 
 const SLIP_STORE_KEY = "karsahr_slip_gaji_store";
@@ -593,6 +594,26 @@ export default function SlipGajiPage() {
     setToastMessage(`Berhasil menyalin ${newCopies.length} draf slip gaji dari ${formatPeriodeDisplay(prevPeriodeStr)}.`);
   };
 
+  // Helper pencarian email karyawan untuk notifikasi terbit slip (PRD Bab 11)
+  const resolveEmployeeEmail = (slip: SlipRecord): { name: string; email: string } => {
+    const empName = slip["nama (bantu)"] || "Karyawan";
+    const empId = slip.karyawan_id;
+    const p = (profilesData as Array<any>).find(
+      (x) => x.id === empId || x.nik_karyawan === empId || x.nama_lengkap === empName
+    );
+    if (p?.email) return { name: p.nama_lengkap, email: p.email };
+    if (empName.toLowerCase().includes("andi")) return { name: "Andi Wijaya", email: "andi.wijaya@karsalintas.test" };
+    if (empName.toLowerCase().includes("siti")) return { name: "Siti Nurhaliza", email: "siti.nurhaliza@karsalintas.test" };
+    if (empName.toLowerCase().includes("maya")) return { name: "Maya Anggraini", email: "maya.anggraini@karsalintas.test" };
+    if (empName.toLowerCase().includes("bayu")) return { name: "Bayu Setiawan", email: "bayu.setiawan@karsalintas.test" };
+    if (empName.toLowerCase().includes("rina")) return { name: "Rina Kusumawardani", email: "rina.kusumawardani@karsalintas.test" };
+    if (empName.toLowerCase().includes("dimas")) return { name: "Dimas Pratama", email: "dimas.pratama@karsalintas.test" };
+    return {
+      name: empName,
+      email: `${empName.toLowerCase().replace(/\s+/g, ".")}@karsalintas.test`,
+    };
+  };
+
   // Handler: Terbitkan Single Slip
   const handlePublishSingle = (slip: SlipRecord) => {
     if (slip.status === "terbit") return;
@@ -615,6 +636,28 @@ export default function SlipGajiPage() {
 
     saveSlips(nextSlips);
     setToastMessage(`Slip gaji ${slip["nama (bantu)"] || "karyawan"} berhasil diterbitkan (${newSlipNum}).`);
+
+    // PRD Bab 11 & BR-11: Email ke karyawan saat slip gaji terbit, berisi tautan saja tanpa nominal gaji
+    const target = resolveEmployeeEmail(slip);
+    sendEmailNotification({
+      type: "PAYROLL_PUBLISHED",
+      toEmail: target.email,
+      toName: target.name,
+      subject: `[KarsaHR] Slip Gaji Periode ${formatPeriodeDisplay(selectedPeriode)} Telah Terbit`,
+      title: "Pemberitahuan Terbit Slip Gaji Karyawan",
+      message: `Slip gaji Anda untuk periode ${formatPeriodeDisplay(selectedPeriode)} telah resmi diterbitkan oleh Tim HRD & Payroll.`,
+      badgeText: "Slip Gaji Terbit",
+      badgeColor: "#7c3aed",
+      summaryItems: [
+        { label: "Nama Karyawan", value: target.name },
+        { label: "Periode Gaji", value: formatPeriodeDisplay(selectedPeriode) },
+        { label: "Nomor Dokumen", value: newSlipNum },
+        { label: "Kerahasiaan (BR-11)", value: "Nominal dirahasiakan dalam email" },
+      ],
+      note: "Sesuai aturan keamanan dan privasi data finansial (BR-11), nominal rincian gaji tidak dicantumkan di badan email. Silakan masuk ke aplikasi KarsaHR untuk mengunduh atau mencetak slip gaji resmi Anda.",
+      actionPath: "/slip-gaji",
+      actionText: "Buka Slip Gaji di KarsaHR",
+    }).catch(() => {});
   };
 
   // Handler: Terbitkan Semua Draf Sekaligus (PRD BR-12)
@@ -645,6 +688,28 @@ export default function SlipGajiPage() {
         }
         return s;
       });
+
+      // PRD Bab 11 & BR-11: Kirim notifikasi email tanpa nominal gaji untuk setiap karyawan
+      const target = resolveEmployeeEmail(draft);
+      sendEmailNotification({
+        type: "PAYROLL_PUBLISHED",
+        toEmail: target.email,
+        toName: target.name,
+        subject: `[KarsaHR] Slip Gaji Periode ${formatPeriodeDisplay(selectedPeriode)} Telah Terbit`,
+        title: "Pemberitahuan Terbit Slip Gaji Karyawan",
+        message: `Slip gaji Anda untuk periode ${formatPeriodeDisplay(selectedPeriode)} telah resmi diterbitkan oleh Tim HRD & Payroll.`,
+        badgeText: "Slip Gaji Terbit",
+        badgeColor: "#7c3aed",
+        summaryItems: [
+          { label: "Nama Karyawan", value: target.name },
+          { label: "Periode Gaji", value: formatPeriodeDisplay(selectedPeriode) },
+          { label: "Nomor Dokumen", value: newSlipNum },
+          { label: "Kerahasiaan (BR-11)", value: "Nominal dirahasiakan dalam email" },
+        ],
+        note: "Sesuai aturan keamanan dan privasi data finansial (BR-11), nominal rincian gaji tidak dicantumkan di badan email. Silakan masuk ke aplikasi KarsaHR untuk mengunduh atau mencetak slip gaji resmi Anda.",
+        actionPath: "/slip-gaji",
+        actionText: "Buka Slip Gaji di KarsaHR",
+      }).catch(() => {});
     });
 
     saveSlips(workingList);
@@ -652,7 +717,7 @@ export default function SlipGajiPage() {
   };
 
   return (
-    <AppLayout>
+    <>
       {/* Toast Notification Melayang */}
       {toastMessage && (
         <div className="floating-toast-container" role="status">
@@ -1285,6 +1350,6 @@ export default function SlipGajiPage() {
           </div>
         </div>
       )}
-    </AppLayout>
+    </>
   );
 }

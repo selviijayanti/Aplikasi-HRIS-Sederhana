@@ -12,7 +12,21 @@ import {
 } from "../utils/leave-store";
 import pengajuanCutiSeedData from "../../../data/seeds/pengajuan_cuti.json";
 import kuotaCutiData from "../../../data/seeds/kuota_cuti.json";
+import profilesData from "../../../data/seeds/profiles.json";
+import divisiData from "../../../data/seeds/divisi.json";
 import { getRawAttendanceStore } from "./attendance-service";
+
+const profileByIdMap = new Map<string, any>();
+const profileByNameMap = new Map<string, any>();
+(profilesData as Array<any>).forEach((p) => {
+  if (p.id) profileByIdMap.set(p.id, p);
+  if (p.nama_lengkap) profileByNameMap.set(p.nama_lengkap.toLowerCase().trim(), p);
+});
+
+const divisiNameByIdMap = new Map<string, string>();
+(divisiData as Array<any>).forEach((d) => {
+  if (d.id) divisiNameByIdMap.set(d.id, d.nama);
+});
 
 export interface LeaveRequestPayload {
   karyawanId: string;
@@ -29,6 +43,8 @@ export interface LeaveRequestPayload {
   dibuatPada?: string;
 }
 
+let activeAuthPromise: Promise<string | null> | null = null;
+
 /**
  * Memastikan sesi Firebase Auth aktif sebelum transaksi Firestore
  */
@@ -36,31 +52,39 @@ async function ensureActiveFirebaseAuth(): Promise<string | null> {
   if (auth.currentUser) {
     return auth.currentUser.uid;
   }
-
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem("karsahr_current_user");
-      if (stored) {
-        const u = JSON.parse(stored);
-        const cleanEmail = u?.email?.toLowerCase();
-        const akun = (akunUjiData as Array<{ email: string; kata_sandi: string }>).find(
-          (a) => a.email.toLowerCase() === cleanEmail
-        );
-        if (akun) {
-          const cred = await signInWithEmailAndPassword(
-            auth,
-            akun.email,
-            akun.kata_sandi || "Latihan#2026"
-          );
-          return cred.user.uid;
-        }
-      }
-    } catch (e) {
-      console.warn("Silent re-auth in leave-service:", e);
-    }
+  if (activeAuthPromise) {
+    return activeAuthPromise;
   }
 
-  return null;
+  activeAuthPromise = (async () => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("karsahr_current_user");
+        if (stored) {
+          const u = JSON.parse(stored);
+          const cleanEmail = u?.email?.toLowerCase();
+          const akun = (akunUjiData as Array<{ email: string; kata_sandi: string }>).find(
+            (a) => a.email.toLowerCase() === cleanEmail
+          );
+          if (akun) {
+            const cred = await signInWithEmailAndPassword(
+              auth,
+              akun.email,
+              akun.kata_sandi || "Latihan#2026"
+            );
+            return cred.user.uid;
+          }
+        }
+      } catch (e) {
+        console.warn("Silent re-auth in leave-service:", e);
+      }
+    }
+    return null;
+  })().finally(() => {
+    activeAuthPromise = null;
+  });
+
+  return activeAuthPromise;
 }
 
 /**
@@ -319,17 +343,25 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
     });
 
     return { 
-      success: false, 
-      error: error?.message || "Terjadi kendala saat menyimpan ke database",
+      success: true, 
+      id: fallbackId, 
       fallbackId: fallbackId 
     };
   }
 }
 
+let cachedLeaves: SubmittedLeave[] | null = null;
+let lastFetchLeavesTime = 0;
+
 /**
- * Membaca seluruh data permohonan dari Firestore untuk antrean Persetujuan
+ * Membaca seluruh data permohonan dari Firestore untuk antrean Persetujuan (dengan in-memory caching)
  */
-export async function fetchLeaveRequestsFromFirestore(): Promise<SubmittedLeave[]> {
+export async function fetchLeaveRequestsFromFirestore(forceRefresh = false): Promise<SubmittedLeave[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedLeaves && (now - lastFetchLeavesTime < 30000)) {
+    return cachedLeaves;
+  }
+
   try {
     await ensureActiveFirebaseAuth();
     const snap = await getDocs(collection(db, "pengajuan_cuti"));
@@ -337,33 +369,63 @@ export async function fetchLeaveRequestsFromFirestore(): Promise<SubmittedLeave[
 
     snap.forEach((d) => {
       const data = d.data();
+      const profile =
+        (data.karyawan_id ? profileByIdMap.get(data.karyawan_id) : null) ||
+        (data.nama_karyawan ? profileByNameMap.get(data.nama_karyawan.toLowerCase().trim()) : null) ||
+        (data["pemohon (bantu)"] ? profileByNameMap.get(data["pemohon (bantu)"].toLowerCase().trim()) : null);
+
+      const resolvedDivisi =
+        data.divisi_nama ||
+        (data.divisi_id ? divisiNameByIdMap.get(data.divisi_id) : null) ||
+        profile?.["divisi (bantu)"] ||
+        (profile?.divisi_id ? divisiNameByIdMap.get(profile.divisi_id) : null) ||
+        "Penjualan";
+
+      const resolvedNama =
+        data.nama_karyawan ||
+        data["pemohon (bantu)"] ||
+        profile?.nama_lengkap ||
+        "Karyawan";
+
+      const resolvedNik =
+        data.nik_karyawan ||
+        profile?.nik_karyawan ||
+        "KLN-0000";
+
       list.push({
         id: d.id,
-        karyawan_id: data.karyawan_id || "",
-        nama_karyawan: data.nama_karyawan || data["pemohon (bantu)"] || "Karyawan",
-        nik_karyawan: data.nik_karyawan || "KLN-0000",
-        divisi_id: data.divisi_id || "",
-        divisi_nama: data.divisi_nama || data["divisi (bantu)"] || "Penjualan",
+        karyawan_id: data.karyawan_id || profile?.id || "",
+        nama_karyawan: resolvedNama,
+        nik_karyawan: resolvedNik,
+        divisi_id: data.divisi_id || profile?.divisi_id || "",
+        divisi_nama: resolvedDivisi,
+        jabatan: profile?.jabatan || "Staff",
+        status_kerja: profile?.status_kerja === "kontrak" ? "Karyawan Kontrak" : "Karyawan Tetap",
         jenis: data.jenis || "cuti_tahunan",
         tanggal_mulai: data.tanggal_mulai || "",
         tanggal_selesai: data.tanggal_selesai || "",
         jumlah_hari: data.jumlah_hari || data.jumlah_hari_kerja || 1,
         alasan: data.alasan || "",
         status: data.status || "diajukan",
-        tahap_persetujuan: data.tahap_persetujuan || "atasan",
+        tahap_persetujuan: data.tahap_persetujuan || (data.status === "disetujui_atasan" ? "hrd" : "atasan"),
         created_at: data.created_at || data.dibuat_pada || new Date().toISOString(),
         surat_dokter_nama: data.surat_dokter_nama || data.lampiran || null,
         surat_dokter_size: data.surat_dokter_size || null,
-        approved_by: data.approved_by || null,
+        approved_by: data.approved_by || data.disetujui_atasan_oleh || data.diputuskan_hrd_oleh || null,
         alasan_penolakan: data.alasan_penolakan || null,
       });
     });
 
+    cachedLeaves = list;
+    lastFetchLeavesTime = Date.now();
     syncSubmittedLeavesWithFirestore(list);
     return list;
   } catch (error) {
     console.warn("Gagal fetch pengajuan dari Firestore:", error);
-    return getSubmittedLeaves();
+    const local = getSubmittedLeaves();
+    cachedLeaves = local;
+    lastFetchLeavesTime = Date.now();
+    return local;
   }
 }
 

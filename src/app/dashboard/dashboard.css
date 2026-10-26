@@ -959,3 +959,143 @@
   margin-top: 1rem;
 }
 
+/* ========================================================
+   RESPONSIVE MOBILE FRIENDLY - DASHBOARD
+   ======================================================== */
+@media (max-width: 768px) {
+  .dashboard-container {
+    gap: 1.25rem;
+  }
+
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .header-title {
+    font-size: 1.35rem !important;
+  }
+
+  .dashboard-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .dashboard-section-title-wrap {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .company-metrics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem;
+  }
+
+  .company-metric-card {
+    padding: 1rem;
+  }
+
+  .metric-card-main-val {
+    font-size: 1.35rem;
+  }
+
+  /* Grafiik Kehadiran Mingguan Mobile Friendly */
+  .chart-card-full {
+    padding: 1rem 0.75rem;
+  }
+
+  .chart-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .chart-header-right {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .chart-legend-inline {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+  }
+
+  .chart-canvas-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+  }
+
+  .chart-container-inner {
+    min-width: 440px;
+  }
+
+  .chart-columns-grid {
+    gap: 1rem;
+  }
+
+  .chart-x-axis-row {
+    gap: 1rem;
+  }
+
+  .chart-footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .chart-legend-list {
+    gap: 0.75rem;
+  }
+
+  /* Grid 2 Kolom Menjadi 1 Kolom Rapi */
+  .two-col-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+
+  /* Modal Form & Pratinjau Slip Gaji Mobile Friendly */
+  .modal-box {
+    width: calc(100vw - 1.5rem) !important;
+    max-width: 100% !important;
+    padding: 1.25rem 1rem !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .slip-printable-box {
+    padding: 1.25rem 1rem !important;
+  }
+
+  .slip-head {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .slip-no-wrap {
+    text-align: left;
+  }
+
+  .slip-details {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .modal-btn-row {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .modal-btn-row button,
+  .modal-btn-row .ui-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+

@@ -911,7 +911,7 @@ export default function PengaturanPage() {
   });
 
   return (
-    <AppLayout>
+    <div className="pengaturan-page-wrap">
       <div className="header-row">
         <div>
           <h2 className="page-title">Pengaturan Sistem (HRD)</h2>
@@ -2014,6 +2014,13 @@ export default function PengaturanPage() {
       )}
 
       <style jsx>{`
+        .pengaturan-page-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          width: 100%;
+        }
+
         .header-row {
           margin-bottom: -0.25rem;
         }
@@ -2042,27 +2049,44 @@ export default function PengaturanPage() {
 
         .tabs-container {
           display: flex;
+          flex-shrink: 0;
           gap: 0.5rem;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 2px solid #e5e7eb;
           padding-bottom: 0.5rem;
-          flex-wrap: wrap;
+          overflow-x: auto;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+
+        .tabs-container::-webkit-scrollbar {
+          display: none;
         }
 
         .tab-btn {
-          background: none;
-          border: none;
-          padding: 0.4rem 0.875rem;
+          flex-shrink: 0;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          padding: 0.45rem 0.95rem;
           font-size: 0.8125rem;
           font-weight: 600;
-          color: #6b7280;
+          color: #475569;
           cursor: pointer;
           border-radius: 6px;
           font-family: inherit;
+          transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+          background-color: #e2e8f0;
+          color: #0f172a;
         }
 
         .tab-btn.active {
-          background-color: #dbeafe;
-          color: #2563eb;
+          background-color: #2563eb;
+          border-color: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
         }
 
         .tab-header {
@@ -2763,7 +2787,72 @@ export default function PengaturanPage() {
           color: #334155;
           background-color: #f1f5f9;
         }
+
+        /* --- Responsive Mobile Friendly - Pengaturan --- */
+        @media (max-width: 768px) {
+          .tab-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+          }
+
+          .title-with-info {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .header-controls {
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            gap: 0.5rem;
+          }
+
+          .filter-item-wrap {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .filter-item-wrap .select-mini {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .btn-add-primary,
+          .btn-add-divisi {
+            width: 100%;
+            justify-content: center;
+            height: 36px;
+          }
+
+          .filter-audit {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .filter-audit .select-mini {
+            flex: 1;
+          }
+
+          .modal-overlay {
+            padding: 0.75rem;
+          }
+
+          .modal-card {
+            max-width: calc(100vw - 1.5rem);
+            max-height: 90vh;
+            overflow-y: auto;
+          }
+
+          .floating-toast-container {
+            top: 1rem;
+            left: 1rem;
+            right: 1rem;
+            min-width: 0;
+            max-width: calc(100vw - 2rem);
+          }
+        }
       `}</style>
-    </AppLayout>
+    </div>
   );
 }

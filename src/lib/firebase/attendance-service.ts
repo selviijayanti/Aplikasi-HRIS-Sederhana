@@ -15,6 +15,9 @@ export const DIVISION_CODE_MAP: Record<string, string> = {
   FIN: "Keuangan",
 };
 
+let cachedAttendanceProfiles: any[] | null = null;
+let lastFetchAttendanceProfilesTime = 0;
+
 /**
  * Format kode divisi menjadi nama divisi resmi (contoh: SLS -> Penjualan)
  */
@@ -201,27 +204,34 @@ export async function fetchAttendanceRecords(
 
     // 1. Ambil data profil dari Firestore / seed dengan deduplikasi ketat per user (email / NIK)
     let allProfiles = profilesData as Array<any>;
-    try {
-      const profSnap = await getDocs(collection(db, "profiles"));
-      if (!profSnap.empty) {
-        const fsProfiles: any[] = [];
-        profSnap.forEach((d) => fsProfiles.push({ id: d.id, ...d.data() }));
-        if (fsProfiles.length > 0) {
-          const pMap = new Map<string, any>();
-          profilesData.forEach((p: any) => {
-            const key = (p.email || p.nik_karyawan || p.nama_lengkap || p.id).toLowerCase();
-            pMap.set(key, { ...p });
-          });
-          fsProfiles.forEach((p: any) => {
-            const key = (p.email || p.nik_karyawan || p.nama_lengkap || p.id).toLowerCase();
-            const existing = pMap.get(key) || {};
-            pMap.set(key, { ...existing, ...p, uid: p.id, id: existing.id || p.id });
-          });
-          allProfiles = Array.from(pMap.values());
+    const nowTime = Date.now();
+    if (cachedAttendanceProfiles && (nowTime - lastFetchAttendanceProfilesTime < 60000)) {
+      allProfiles = cachedAttendanceProfiles;
+    } else {
+      try {
+        const profSnap = await getDocs(collection(db, "profiles"));
+        if (!profSnap.empty) {
+          const fsProfiles: any[] = [];
+          profSnap.forEach((d) => fsProfiles.push({ id: d.id, ...d.data() }));
+          if (fsProfiles.length > 0) {
+            const pMap = new Map<string, any>();
+            profilesData.forEach((p: any) => {
+              const key = (p.email || p.nik_karyawan || p.nama_lengkap || p.id).toLowerCase();
+              pMap.set(key, { ...p });
+            });
+            fsProfiles.forEach((p: any) => {
+              const key = (p.email || p.nik_karyawan || p.nama_lengkap || p.id).toLowerCase();
+              const existing = pMap.get(key) || {};
+              pMap.set(key, { ...existing, ...p, uid: p.id, id: existing.id || p.id });
+            });
+            allProfiles = Array.from(pMap.values());
+            cachedAttendanceProfiles = allProfiles;
+            lastFetchAttendanceProfilesTime = Date.now();
+          }
         }
+      } catch (e) {
+        // Fallback
       }
-    } catch (e) {
-      // Fallback
     }
 
     // 2. Filter dan deduplikasi seluruh anggota aktif divisi Atasan (tepat 5 orang untuk Divisi Penjualan)

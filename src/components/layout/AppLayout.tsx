@@ -1,10 +1,30 @@
-import React, { useEffect, useState, useRef } from "react";
+"use client";
+
+import React, { useEffect, useState, useRef, createContext, useContext } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { getLeaveStatusOverrides, getSubmittedLeaves } from "@/lib/utils/leave-store";
-import { MoreHorizontal, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  CalendarDays,
+  CheckSquare,
+  Users,
+  Receipt,
+  BarChart3,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+
+const LayoutContext = createContext<boolean>(false);
 
 function getInitials(name?: string | null): string {
   if (!name) return "U";
@@ -19,12 +39,57 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
+  // Jika AppLayout sudah aktif di parent level (AppShell), cukup render children saja
+  const isNested = useContext(LayoutContext);
+  if (isNested) {
+    return <>{children}</>;
+  }
+
+  return (
+    <LayoutContext.Provider value={true}>
+      <AppLayoutContent fullBleed={fullBleed}>{children}</AppLayoutContent>
+    </LayoutContext.Provider>
+  );
+}
+
+function AppLayoutContent({ children, fullBleed }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const [pendingBadgeCount, setPendingBadgeCount] = useState<number>(0);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Tutup drawer mobile saat rute halaman berganti
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
+
+  // Ambil state collapse tersimpan di localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("karsahr_sidebar_collapsed");
+      if (saved !== null) {
+        setIsCollapsed(saved === "true");
+      }
+    } catch {
+      // Abaikan jika localStorage tidak dapat diakses
+    }
+  }, []);
+
+  const handleToggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("karsahr_sidebar_collapsed", String(next));
+      } catch {
+        // Abaikan error localStorage
+      }
+      return next;
+    });
+  };
 
   // Tutup dropdown menu saat klik di luar area
   useEffect(() => {
@@ -41,11 +106,12 @@ export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
     };
   }, [isProfileMenuOpen]);
 
-  // Tutup dropdown menu saat menekan tombol Escape
+  // Tutup dropdown menu dan mobile drawer saat menekan tombol Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsProfileMenuOpen(false);
+        setIsMobileOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -163,98 +229,215 @@ export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
     };
   }, [user]);
 
-  if (loading || !user) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", color: "#6b7280" }}>
-        Memuat data...
-      </div>
-    );
-  }
-
-  // Tentukan sapaan dan role label
-  const roleLabel = user.peran === "hrd" ? "HRD" : user.peran === "atasan" ? "Atasan" : "Karyawan";
-  const divisiLabel = user.divisi_nama || user.jabatan;
+  // Tentukan sapaan dan role label secara aman
+  const roleLabel = user ? (user.peran === "hrd" ? "HRD" : user.peran === "atasan" ? "Atasan" : "Karyawan") : "...";
+  const divisiLabel = user ? (user.divisi_nama || user.jabatan || "") : "";
 
   const isFullBleed = fullBleed ?? (pathname === "/persetujuan");
 
   return (
     <div className="app-shell">
-      {/* Sidebar Navigasi Sesuai Wireframe */}
-      <aside className="app-sidebar">
+      {/* Mobile Top Header Bar - Tampilan Mobile Friendly */}
+      <header className="mobile-header-bar">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Buka menu navigasi"
+        >
+          <Menu size={22} />
+        </button>
+
+        <div className="mobile-brand-title">
+          <span className="mobile-logo-badge">K</span>
+          <span className="mobile-app-name">KarsaHR</span>
+        </div>
+
+        <button
+          type="button"
+          className="mobile-profile-btn"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Buka profil dan navigasi"
+        >
+          {user?.foto_url || (user as any)?.foto ? (
+            <img
+              src={user?.foto_url || (user as any)?.foto}
+              alt={user?.nama_lengkap || "Pengguna"}
+              className="mobile-avatar-img"
+            />
+          ) : (
+            <div className="mobile-avatar-circle">
+              {getInitials(user?.nama_lengkap)}
+            </div>
+          )}
+        </button>
+      </header>
+
+      {/* Backdrop Gelap saat Drawer Mobile Terbuka */}
+      {isMobileOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar Navigasi - Mobile Friendly Off-Canvas Drawer & Desktop Sidebar */}
+      <aside className={`app-sidebar ${isCollapsed ? "collapsed" : ""} ${isMobileOpen ? "mobile-open" : ""}`}>
+        {/* Tombol Floating Edge Toggle Buka/Tutup Persis Sesuai Gambar Referensi (Desktop) */}
+        <button
+          type="button"
+          className="sidebar-toggle-edge-btn"
+          onClick={handleToggleCollapse}
+          title={isCollapsed ? "Buka Sidebar" : "Tutup Sidebar"}
+          aria-label={isCollapsed ? "Buka Sidebar" : "Tutup Sidebar"}
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
         <div>
+          {/* Header Sidebar */}
           <div className="sidebar-header">
-            <h1 className="brand-title">KarsaHR</h1>
-            <p className="brand-company">PT Karsa Lintas Nusantara</p>
+            {!isCollapsed ? (
+              <div className="brand-info">
+                <h1 className="brand-title">KarsaHR</h1>
+                <p className="brand-company">PT Karsa Lintas Nusantara</p>
+              </div>
+            ) : (
+              <div
+                className="brand-mini-badge"
+                title="KarsaHR · PT Karsa Lintas Nusantara (Klik untuk membuka sidebar)"
+                onClick={handleToggleCollapse}
+                role="button"
+                tabIndex={0}
+              >
+                <span>K</span>
+              </div>
+            )}
+
+            {/* Tombol Tutup Khusus Mobile Drawer */}
+            <button
+              type="button"
+              className="mobile-drawer-close-btn"
+              onClick={() => setIsMobileOpen(false)}
+              aria-label="Tutup menu navigasi"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           <nav className="sidebar-menu">
-            <a
+            <Link
               href="/dashboard"
               className={`menu-item ${pathname === "/dashboard" ? "active" : ""}`}
+              title={isCollapsed ? "Dashboard" : undefined}
+              onClick={() => setIsMobileOpen(false)}
             >
-              <span>Dashboard</span>
-            </a>
+              <div className="menu-item-left">
+                <LayoutDashboard className="menu-item-icon" size={18} />
+                <span className="menu-item-text">Dashboard</span>
+              </div>
+            </Link>
 
-            <a
+            <Link
               href="/absensi"
               className={`menu-item ${pathname === "/absensi" ? "active" : ""}`}
+              title={isCollapsed ? "Absensi" : undefined}
+              onClick={() => setIsMobileOpen(false)}
             >
-              <span>Absensi</span>
-            </a>
+              <div className="menu-item-left">
+                <CalendarCheck className="menu-item-icon" size={18} />
+                <span className="menu-item-text">Absensi</span>
+              </div>
+            </Link>
 
-            <a
+            <Link
               href="/cuti"
               className={`menu-item ${pathname === "/cuti" ? "active" : ""}`}
+              title={isCollapsed ? "Cuti dan Izin" : undefined}
+              onClick={() => setIsMobileOpen(false)}
             >
-              <span>Cuti dan Izin</span>
-            </a>
+              <div className="menu-item-left">
+                <CalendarDays className="menu-item-icon" size={18} />
+                <span className="menu-item-text">Cuti dan Izin</span>
+              </div>
+            </Link>
 
             {/* Menu Khusus Atasan & HRD sesuai PRD */}
-            {(user.peran === "atasan" || user.peran === "hrd") && (
-              <a
+            {(user?.peran === "atasan" || user?.peran === "hrd") && (
+              <Link
                 href="/persetujuan"
                 className={`menu-item ${pathname === "/persetujuan" ? "active" : ""}`}
+                title={isCollapsed ? `Persetujuan${pendingBadgeCount > 0 ? ` (${pendingBadgeCount})` : ""}` : undefined}
+                onClick={() => setIsMobileOpen(false)}
               >
-                <span>Persetujuan</span>
+                <div className="menu-item-left">
+                  <CheckSquare className="menu-item-icon" size={18} />
+                  <span className="menu-item-text">Persetujuan</span>
+                </div>
                 {pendingBadgeCount > 0 && (
-                  <span className="menu-badge">
-                    {pendingBadgeCount}
-                  </span>
+                  isCollapsed ? (
+                    <span className="menu-badge-dot" title={`${pendingBadgeCount} permohonan menunggu persetujuan`} />
+                  ) : (
+                    <span className="menu-badge">
+                      {pendingBadgeCount}
+                    </span>
+                  )
                 )}
-              </a>
+              </Link>
             )}
 
-            {(user.peran === "atasan" || user.peran === "hrd") && (
-              <a
+            {(user?.peran === "atasan" || user?.peran === "hrd") && (
+              <Link
                 href="/karyawan"
                 className={`menu-item ${pathname === "/karyawan" ? "active" : ""}`}
+                title={isCollapsed ? "Data Karyawan" : undefined}
+                onClick={() => setIsMobileOpen(false)}
               >
-                <span>Data Karyawan</span>
-              </a>
+                <div className="menu-item-left">
+                  <Users className="menu-item-icon" size={18} />
+                  <span className="menu-item-text">Data Karyawan</span>
+                </div>
+              </Link>
             )}
 
-            <a
+            <Link
               href="/slip-gaji"
               className={`menu-item ${pathname === "/slip-gaji" ? "active" : ""}`}
+              title={isCollapsed ? "Slip Gaji" : undefined}
+              onClick={() => setIsMobileOpen(false)}
             >
-              <span>Slip Gaji</span>
-            </a>
+              <div className="menu-item-left">
+                <Receipt className="menu-item-icon" size={18} />
+                <span className="menu-item-text">Slip Gaji</span>
+              </div>
+            </Link>
 
             {/* Menu Khusus HRD sesuai PRD */}
-            {user.peran === "hrd" && (
+            {user?.peran === "hrd" && (
               <>
-                <a
+                <Link
                   href="/laporan"
                   className={`menu-item ${pathname === "/laporan" ? "active" : ""}`}
+                  title={isCollapsed ? "Laporan" : undefined}
+                  onClick={() => setIsMobileOpen(false)}
                 >
-                  <span>Laporan</span>
-                </a>
-                <a
+                  <div className="menu-item-left">
+                    <BarChart3 className="menu-item-icon" size={18} />
+                    <span className="menu-item-text">Laporan</span>
+                  </div>
+                </Link>
+                <Link
                   href="/pengaturan"
                   className={`menu-item ${pathname === "/pengaturan" ? "active" : ""}`}
+                  title={isCollapsed ? "Pengaturan" : undefined}
+                  onClick={() => setIsMobileOpen(false)}
                 >
-                  <span>Pengaturan</span>
-                </a>
+                  <div className="menu-item-left">
+                    <Settings className="menu-item-icon" size={18} />
+                    <span className="menu-item-text">Pengaturan</span>
+                  </div>
+                </Link>
               </>
             )}
           </nav>
@@ -267,8 +450,8 @@ export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
             <div className="profile-dropdown-menu" role="menu" aria-label="Menu Opsi Akun">
               {/* Header Mini Info Akun */}
               <div className="dropdown-user-header">
-                <p className="dropdown-user-name">{user.nama_lengkap}</p>
-                <p className="dropdown-user-email">{user.email || user.nik_karyawan}</p>
+                <p className="dropdown-user-name">{user?.nama_lengkap || "Pengguna"}</p>
+                <p className="dropdown-user-email">{user?.email || user?.nik_karyawan || ""}</p>
                 <span className="dropdown-user-tag">{roleLabel} · {divisiLabel}</span>
               </div>
 
@@ -277,7 +460,7 @@ export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
               {/* Info NIK Karyawan */}
               <div className="dropdown-info-item">
                 <span className="dropdown-item-label">NIK:</span>
-                <span className="dropdown-item-val font-mono">{user.nik_karyawan}</span>
+                <span className="dropdown-item-val font-mono">{user?.nik_karyawan || "-"}</span>
               </div>
 
               <div className="dropdown-divider" />
@@ -301,45 +484,49 @@ export default function AppLayout({ children, fullBleed }: AppLayoutProps) {
           <div
             className={`profile-main-row ${isProfileMenuOpen ? "active" : ""}`}
             onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-            title="Klik untuk membuka menu akun"
+            title={isCollapsed ? `${user?.nama_lengkap || "Pengguna"} (${roleLabel}) - Klik untuk opsi` : "Klik untuk membuka menu akun"}
           >
             <div className="profile-info-left">
-              {user.foto_url || (user as any).foto ? (
+              {user?.foto_url || (user as any)?.foto ? (
                 <img
-                  src={user.foto_url || (user as any).foto}
-                  alt={user.nama_lengkap}
+                  src={user?.foto_url || (user as any)?.foto}
+                  alt={user?.nama_lengkap || "Pengguna"}
                   className="profile-avatar-img"
                 />
               ) : (
                 <div
                   className="profile-avatar-circle"
-                  aria-label={user.nama_lengkap}
+                  aria-label={user?.nama_lengkap || "Pengguna"}
                 >
-                  {getInitials(user.nama_lengkap)}
+                  {getInitials(user?.nama_lengkap)}
                 </div>
               )}
-              <div className="profile-text-wrap">
-                <p className="profile-user-name" title={user.nama_lengkap}>
-                  {user.nama_lengkap}
-                </p>
-                <p className="profile-user-role" title={`${roleLabel} · ${divisiLabel}`}>
-                  {roleLabel} · {divisiLabel}
-                </p>
-              </div>
+              {!isCollapsed && (
+                <div className="profile-text-wrap">
+                  <p className="profile-user-name" title={user?.nama_lengkap || ""}>
+                    {user?.nama_lengkap || "Memuat..."}
+                  </p>
+                  <p className="profile-user-role" title={`${roleLabel} · ${divisiLabel}`}>
+                    {roleLabel} · {divisiLabel}
+                  </p>
+                </div>
+              )}
             </div>
 
-            <button
-              type="button"
-              className={`profile-more-btn ${isProfileMenuOpen ? "active" : ""}`}
-              title="Menu opsi akun"
-              aria-label="Menu opsi akun"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsProfileMenuOpen(!isProfileMenuOpen);
-              }}
-            >
-              <MoreHorizontal size={16} />
-            </button>
+            {!isCollapsed && (
+              <button
+                type="button"
+                className={`profile-more-btn ${isProfileMenuOpen ? "active" : ""}`}
+                title="Menu opsi akun"
+                aria-label="Menu opsi akun"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsProfileMenuOpen(!isProfileMenuOpen);
+                }}
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            )}
           </div>
         </div>
       </aside>

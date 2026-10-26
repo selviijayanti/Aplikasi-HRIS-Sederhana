@@ -51,6 +51,7 @@ body {
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* App Shell Structure with Dark Navy Outer Canvas */
@@ -77,11 +78,57 @@ body {
   padding: 1.25rem 1rem 1rem 1.25rem;
   box-sizing: border-box;
   user-select: none;
+  position: relative;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-sidebar.collapsed {
+  width: 76px;
+  padding: 1.25rem 0.55rem 1rem 0.55rem;
+}
+
+/* Floating Edge Toggle Button persis seperti pada gambar referensi */
+.sidebar-toggle-edge-btn {
+  position: absolute;
+  top: 26px;
+  right: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 2.5px solid #0b1935;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(37, 99, 235, 0.45);
+  z-index: 50;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.sidebar-toggle-edge-btn:hover {
+  transform: scale(1.15);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.65);
+}
+
+.sidebar-toggle-edge-btn:active {
+  transform: scale(0.95);
 }
 
 .sidebar-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
   padding-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.app-sidebar.collapsed .sidebar-header {
+  padding-left: 0;
+  justify-content: center;
+  margin-bottom: 1.5rem;
 }
 
 .brand-title {
@@ -98,23 +145,55 @@ body {
   margin-top: 0.15rem;
 }
 
+/* Badge Logo Mini saat Sidebar Collapsed (Huruf K) */
+.brand-mini-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.125rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.brand-mini-badge:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.65);
+}
+
+.brand-mini-badge span {
+  color: #ffffff !important;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
 .sidebar-menu {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 1rem;
+  padding: 0.6rem 0.85rem;
   font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.82);
   text-decoration: none;
   border-radius: 9999px;
   font-weight: 500;
   transition: all 150ms ease;
+  position: relative;
 }
 
 .menu-item:hover {
@@ -134,6 +213,23 @@ body {
   color: #0f2452;
 }
 
+.menu-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.menu-item-icon {
+  flex-shrink: 0;
+}
+
+.menu-item-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .menu-badge {
   background-color: #3b82f6;
   color: #ffffff;
@@ -148,12 +244,57 @@ body {
   color: #ffffff;
 }
 
+/* Penyesuaian saat Sidebar Collapsed */
+.app-sidebar.collapsed .menu-item {
+  justify-content: center;
+  padding: 0.625rem 0;
+  border-radius: 12px;
+}
+
+.app-sidebar.collapsed .menu-item-left {
+  justify-content: center;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .menu-item-text {
+  display: none;
+}
+
+.menu-badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  border: 1.5px solid #0f224a;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+}
+
+.menu-item.active .menu-badge-dot {
+  background-color: #0f2452;
+  border-color: #ffffff;
+}
+
 .sidebar-footer {
   position: relative;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   padding: 0.85rem 0.25rem 1.25rem 0.25rem;
   margin-top: auto;
   box-sizing: border-box;
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  padding: 0.85rem 0;
+  display: flex;
+  justify-content: center;
+}
+
+.app-sidebar.collapsed .profile-main-row {
+  justify-content: center;
+  padding: 0.35rem 0;
+  width: auto;
 }
 
 .profile-main-row {
@@ -272,8 +413,13 @@ body {
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
   animation: dropdownFadeIn 140ms ease-out forwards;
+}
+
+.app-sidebar.collapsed .profile-dropdown-menu {
+  right: auto;
+  left: 0;
+  min-width: 230px;
 }
 
 @keyframes dropdownFadeIn {
@@ -769,4 +915,355 @@ body {
 }
 .text-slate-500 {
   color: #64748b;
+}
+
+/* ==========================================================================
+   MOBILE FRIENDLY STYLES & RESPONSIVE OFF-CANVAS NAVIGATION (MOBILE FRIENDLY)
+   ========================================================================== */
+
+/* 1. Komponen Mobile Navigation Bar (Tersembunyi secara default di Desktop) */
+.mobile-header-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 1rem;
+  background: linear-gradient(180deg, #0f224a 0%, #0b1935 100%);
+  color: #ffffff;
+  flex-shrink: 0;
+  z-index: 40;
+  user-select: none;
+}
+
+.mobile-menu-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  padding: 0;
+}
+
+.mobile-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.mobile-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-logo-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+.mobile-app-name {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.mobile-mail-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #93c5fd;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 120ms ease;
+}
+
+.mobile-mail-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.mobile-mail-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0 4px;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #0f224a;
+}
+
+.outbox-btn-nav {
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: #cbd5e1;
+}
+
+.outbox-btn-nav:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.mobile-profile-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.mobile-avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.mobile-drawer-close-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.mobile-drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fda4af;
+}
+
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
+/* 2. Media Query untuk Layar Tablet & Ponsel (Mobile Friendly Responsive) */
+@media (max-width: 768px) {
+  /* Layout Shell Mobile */
+  .app-shell {
+    flex-direction: column;
+    padding: 0;
+    height: 100vh;
+    height: 100dvh;
+    background: #0f224a;
+  }
+
+  /* Aktifkan Header Bar Mobile */
+  .mobile-header-bar {
+    display: flex;
+  }
+
+  /* Sembunyikan Tombol Floating Toggle Edge di Mobile */
+  .sidebar-toggle-edge-btn {
+    display: none !important;
+  }
+
+  /* Aktifkan Backdrop Mobile */
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 25, 53, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 998;
+    animation: mobileFadeIn 0.2s ease-out forwards;
+  }
+
+  @keyframes mobileFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Sidebar berubah menjadi Off-Canvas Drawer */
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px !important;
+    max-width: 85vw;
+    background: linear-gradient(180deg, #0f224a 0%, #0b1935 100%);
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    padding: 1.25rem 1rem;
+    overflow-y: auto;
+  }
+
+  .app-sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .mobile-drawer-close-btn {
+    display: flex;
+  }
+
+  .app-sidebar.collapsed .brand-mini-badge {
+    display: none;
+  }
+
+  /* Menu teks selalu tampil di Drawer Mobile */
+  .app-sidebar.collapsed .menu-item-text {
+    display: inline !important;
+  }
+
+  .app-sidebar.collapsed .menu-item {
+    justify-content: space-between !important;
+    padding: 0.6rem 0.85rem !important;
+  }
+
+  .app-sidebar.collapsed .menu-item-left {
+    justify-content: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .app-sidebar.collapsed .sidebar-footer {
+    padding: 0.85rem 0.25rem 1.25rem 0.25rem !important;
+  }
+
+  .app-sidebar.collapsed .profile-main-row {
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+
+  .app-sidebar.collapsed .profile-text-wrap,
+  .app-sidebar.collapsed .profile-more-btn {
+    display: block !important;
+  }
+
+  /* Konten Utama Responsif Mobile Friendly */
+  .app-main,
+  .app-main-fullbleed {
+    border-radius: 20px 20px 0 0;
+    padding: 1.25rem 1rem 3rem 1rem;
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  /* Penyesuaian Elemen Halaman Mobile Friendly */
+  .page-header-row,
+  .header-row,
+  .main-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .persetujuan-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+
+  .persetujuan-main-container {
+    padding: 1rem 0.75rem !important;
+  }
+
+  /* Responsif Tabel - Pembungkus Horizontal Scroll yang Rapi */
+  .ui-table-wrap {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 8px;
+  }
+
+  .ui-table {
+    min-width: 580px;
+    width: 100%;
+  }
+
+  /* Touch-friendly Nav & Main Action Items (tanpa merusak tombol kecil di tabel/modal) */
+  .menu-item,
+  .btn-primary,
+  .submit-btn,
+  .btn-add-primary,
+  .btn-add-karyawan,
+  .btn-add-divisi {
+    min-height: 40px;
+  }
+}
+
+/* 3. Media Query Tambahan untuk Layar Kecil (Mobile Phone < 480px) */
+@media (max-width: 480px) {
+  .app-main,
+  .app-main-fullbleed {
+    padding: 0.85rem 0.65rem 3rem 0.65rem;
+  }
+
+  .page-title,
+  .header-title {
+    font-size: 1.2rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }

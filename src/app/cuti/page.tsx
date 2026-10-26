@@ -17,6 +17,7 @@ import {
   updateLeaveStatusOverride,
 } from "@/lib/utils/leave-store";
 import { getRawAttendanceStore } from "@/lib/firebase/attendance-service";
+import { sendEmailNotification } from "@/lib/email/email-service";
 
 const BULAN_INDO = [
   "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
@@ -435,8 +436,12 @@ export default function CutiPage() {
 
     const jatahHari = qRec?.jatah_hari || 12;
     let terpakai = 0;
+    const seenIds = new Set<string>();
 
     daftarPengajuan.forEach((item) => {
+      if (!item || !item.id || seenIds.has(item.id)) return;
+      seenIds.add(item.id);
+
       // Periksa tahun pengajuan (hanya 2026)
       const ymd = parseDateToYMD(item.tanggal_mulai);
       const is2026 = ymd ? ymd.startsWith("2026") : true;
@@ -595,7 +600,16 @@ export default function CutiPage() {
 
   // 4. Kueri daftar riwayat pengajuan diurutkan berdasarkan dibuat_pada DESC (pengajuan terbaru di paling atas)
   const sortedDaftarPengajuan = useMemo(() => {
-    return [...daftarPengajuan].sort((a, b) => {
+    const seen = new Set<string>();
+    const uniqueList: typeof daftarPengajuan = [];
+    for (const item of daftarPengajuan) {
+      if (!item || !item.id) continue;
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        uniqueList.push(item);
+      }
+    }
+    return uniqueList.sort((a, b) => {
       const timeA = new Date((a as any).dibuat_pada || (a as any).created_at || (a as any).tanggal_mulai || 0).getTime();
       const timeB = new Date((b as any).dibuat_pada || (b as any).created_at || (b as any).tanggal_mulai || 0).getTime();
       return timeB - timeA;
@@ -751,12 +765,53 @@ export default function CutiPage() {
       created_at: nowIso,
     };
 
-    setDaftarPengajuan((prev) => [baru, ...prev]);
+    setDaftarPengajuan((prev) => [baru, ...prev.filter((p) => p.id !== baru.id)]);
     setFormSuccess(
       `Pengajuan ${labelJenis.toLowerCase()} (${hitungHariKerja} hari kerja) berhasil dikirim dan sedang menunggu persetujuan.`
     );
     setAlasan("");
     setFileSurat(null);
+
+    // PRD Bab 11: Notifikasi email ke Atasan saat ada pengajuan baru dari anggota divisinya
+    const atasanEmail =
+      user?.divisi_nama?.toLowerCase().includes("operasional")
+        ? "bayu.setiawan@karsalintas.test"
+        : user?.divisi_nama?.toLowerCase().includes("keuangan")
+        ? "hendra.gunawan@karsalintas.test"
+        : user?.divisi_nama?.toLowerCase().includes("hrd")
+        ? "rina.kusumawardani@karsalintas.test"
+        : "maya.anggraini@karsalintas.test";
+
+    const atasanNama =
+      user?.divisi_nama?.toLowerCase().includes("operasional")
+        ? "Bayu Setiawan"
+        : user?.divisi_nama?.toLowerCase().includes("keuangan")
+        ? "Hendra Gunawan"
+        : user?.divisi_nama?.toLowerCase().includes("hrd")
+        ? "Rina Kusumawardani"
+        : "Maya Anggraini";
+
+    sendEmailNotification({
+      type: "LEAVE_SUBMITTED_TO_MANAGER",
+      toEmail: atasanEmail,
+      toName: atasanNama,
+      subject: `[KarsaHR] Pengajuan Baru: ${labelJenis} - ${user?.nama_lengkap || "Karyawan"}`,
+      title: "Permohonan Cuti/Izin Baru Memerlukan Persetujuan",
+      message: `Karyawan dari divisi ${user?.divisi_nama || "Anda"} telah mengajukan permohonan baru.`,
+      badgeText: "Menunggu Persetujuan Atasan",
+      badgeColor: "#2563eb",
+      summaryItems: [
+        { label: "Pemohon", value: `${user?.nama_lengkap || "Karyawan"} (${user?.nik_karyawan || "-"})` },
+        { label: "Divisi", value: user?.divisi_nama || "Penjualan" },
+        { label: "Jenis Pengajuan", value: labelJenis },
+        { label: "Periode", value: `${tanggalMulai} s/d ${tanggalSelesai}` },
+        { label: "Durasi Efektif", value: `${hitungHariKerja} Hari Kerja` },
+        { label: "Alasan", value: alasan.trim() || "-" },
+      ],
+      note: "Silakan buka menu Persetujuan di KarsaHR untuk meninjau dan mengambil keputusan.",
+      actionPath: "/persetujuan",
+      actionText: "Tinjau Permohonan di KarsaHR",
+    }).catch(() => {});
   };
 
   // Penanganan Pembatalan Pengajuan (PRD BR-10 & Bab 7)
@@ -785,12 +840,31 @@ export default function CutiPage() {
       }
     }
 
+    // PRD Bab 11: Notifikasi email pembatalan pengajuan
+    sendEmailNotification({
+      type: "LEAVE_STATUS_UPDATED",
+      toEmail: user?.email || "andi.wijaya@karsalintas.test",
+      toName: user?.nama_lengkap || "Karyawan",
+      subject: `[KarsaHR] Pembatalan Pengajuan: ${item.jenis}`,
+      title: "Permohonan Cuti/Izin Berhasil Dibatalkan",
+      message: "Permohonan cuti/izin Anda telah berhasil dibatalkan sesuai permintaan.",
+      badgeText: "Dibatalkan",
+      badgeColor: "#64748b",
+      summaryItems: [
+        { label: "Jenis Pengajuan", value: item.jenis },
+        { label: "Durasi", value: `${item.jumlah_hari} Hari Kerja` },
+        { label: "Status Terkini", value: "Dibatalkan oleh Pemohon" },
+      ],
+      actionPath: "/cuti",
+      actionText: "Lihat Riwayat Cuti",
+    }).catch(() => {});
+
     setFormSuccess("Pengajuan berhasil dibatalkan. Kuota cuti dikembalikan.");
     setTimeout(() => setFormSuccess(null), 4000);
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="cuti-header">
         <h2 className="page-title">Cuti dan Izin</h2>
         <p className="page-sub">Kelola permohonan cuti tahunan, sakit, dan izin Anda.</p>
@@ -1133,7 +1207,7 @@ export default function CutiPage() {
                     const rentangDisplay = formatRentangTanggal(validMulai, validSelesai);
 
                     return (
-                      <tr key={item.id}>
+                      <tr key={`${item.id || "cuti"}-${index}`}>
                         <td className="font-semibold">
                           <div className="jenis-with-attachment">
                             <span>{item.jenis}</span>
@@ -1557,7 +1631,19 @@ export default function CutiPage() {
           padding: 1.5rem !important;
           color: #9ca3af;
         }
+
+        @media (max-width: 640px) {
+          .date-row {
+            grid-template-columns: 1fr !important;
+          }
+          .quota-row {
+            flex-wrap: wrap;
+          }
+          .cuti-header {
+            margin-bottom: 0.75rem;
+          }
+        }
       `}</style>
-    </AppLayout>
+    </>
   );
 }

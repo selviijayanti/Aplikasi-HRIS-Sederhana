@@ -368,7 +368,7 @@ export default function AbsensiPage() {
   const isHRD = user?.peran === "hrd";
 
   return (
-    <AppLayout>
+    <>
       {/* Header Halaman Sesuai Peran */}
       <div className="page-header-row">
         <div>
@@ -970,6 +970,6 @@ export default function AbsensiPage() {
           </div>
         </div>
       )}
-    </AppLayout>
+    </>
   );
 }

@@ -1,0 +1,3 @@
+# PRD Bab 10.2: Aplikasi bersifat internal: semua halaman diberi tanda noindex dan tidak boleh muncul di mesin pencari.
+User-agent: *
+Disallow: /

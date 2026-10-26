@@ -37,35 +37,45 @@ export interface EmployeeProfilePayload {
 /**
  * Memastikan sesi Firebase Auth aktif sebelum transaksi Firestore
  */
+let activeAuthPromise: Promise<string | null> | null = null;
+
 async function ensureActiveFirebaseAuth(): Promise<string | null> {
   if (auth.currentUser) {
     return auth.currentUser.uid;
   }
-
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem("karsahr_current_user");
-      if (stored) {
-        const u = JSON.parse(stored);
-        const cleanEmail = u?.email?.toLowerCase();
-        const akun = (akunUjiData as Array<{ email: string; kata_sandi: string }>).find(
-          (a) => a.email.toLowerCase() === cleanEmail
-        );
-        if (akun) {
-          const cred = await signInWithEmailAndPassword(
-            auth,
-            akun.email,
-            akun.kata_sandi || "Latihan#2026"
-          );
-          return cred.user.uid;
-        }
-      }
-    } catch (e) {
-      console.warn("Silent re-auth in employee-service:", e);
-    }
+  if (activeAuthPromise) {
+    return activeAuthPromise;
   }
 
-  return null;
+  activeAuthPromise = (async () => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("karsahr_current_user");
+        if (stored) {
+          const u = JSON.parse(stored);
+          const cleanEmail = u?.email?.toLowerCase();
+          const akun = (akunUjiData as Array<{ email: string; kata_sandi: string }>).find(
+            (a) => a.email.toLowerCase() === cleanEmail
+          );
+          if (akun) {
+            const cred = await signInWithEmailAndPassword(
+              auth,
+              akun.email,
+              akun.kata_sandi || "Latihan#2026"
+            );
+            return cred.user.uid;
+          }
+        }
+      } catch (e) {
+        console.warn("Silent re-auth in employee-service:", e);
+      }
+    }
+    return null;
+  })().finally(() => {
+    activeAuthPromise = null;
+  });
+
+  return activeAuthPromise;
 }
 
 /**
@@ -114,10 +124,18 @@ async function logAuditActivity(logEntry: {
   }
 }
 
+let cachedEmployees: EmployeeProfilePayload[] | null = null;
+let lastFetchEmployeesTime = 0;
+
 /**
- * Membaca data karyawan dari Cloud Firestore, digabungkan dengan seed awal dan cache lokal
+ * Membaca data karyawan dari Cloud Firestore, digabungkan dengan seed awal dan cache lokal (dengan in-memory caching)
  */
-export async function fetchEmployeesFromFirestore(): Promise<EmployeeProfilePayload[]> {
+export async function fetchEmployeesFromFirestore(forceRefresh = false): Promise<EmployeeProfilePayload[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedEmployees && (now - lastFetchEmployeesTime < 30000)) {
+    return cachedEmployees;
+  }
+
   try {
     await ensureActiveFirebaseAuth();
     const snap = await getDocs(collection(db, "profiles"));
@@ -143,6 +161,9 @@ export async function fetchEmployeesFromFirestore(): Promise<EmployeeProfilePayl
     });
 
     const result = Array.from(map.values());
+    cachedEmployees = result;
+    lastFetchEmployeesTime = Date.now();
+
     if (typeof window !== "undefined") {
       localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(result));
     }
@@ -159,11 +180,17 @@ export async function fetchEmployeesFromFirestore(): Promise<EmployeeProfilePayl
             const key = (p.nik_karyawan || p.email || p.id).toLowerCase();
             uniqueMap.set(key, p);
           });
-          return Array.from(uniqueMap.values());
+          const localList = Array.from(uniqueMap.values());
+          cachedEmployees = localList;
+          lastFetchEmployeesTime = Date.now();
+          return localList;
         }
       } catch (e) {}
     }
-    return profilesData as any[];
+    const fallback = profilesData as any[];
+    cachedEmployees = fallback;
+    lastFetchEmployeesTime = Date.now();
+    return fallback;
   }
 }
 

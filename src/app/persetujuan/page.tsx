@@ -12,6 +12,9 @@ import {
   fetchLeaveRequestsFromFirestore,
   updateLeaveApprovalInFirestore,
 } from "@/lib/firebase/leave-service";
+import { sendEmailNotification } from "@/lib/email/email-service";
+import profilesData from "../../../data/seeds/profiles.json";
+import divisiData from "../../../data/seeds/divisi.json";
 import "./persetujuan.css";
 
 interface ApprovalItem {
@@ -49,110 +52,35 @@ interface ApprovalItem {
   rekan_cuti: Array<{ nama: string; tanggal: string; status: "disetujui" | "disetujui_atasan" | "diajukan" }>;
 }
 
-// Master Profile Lookup Lengkap Berdasarkan ERD & Seed Profiles
-const EMPLOYEE_PROFILES_LOOKUP: Record<string, { nama: string; nik: string; jabatan: string; divisi: string; status_kerja: string }> = {
-  // Andi Wijaya (KLN-0009)
-  "3ce404ad-885e-51ef-bbf7-10345f2c2f04": {
-    nama: "Andi Wijaya",
-    nik: "KLN-0009",
-    jabatan: "Sales Executive",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Tetap (Masuk 1 Jun 2021)",
-  },
-  "ZmFaWUk8p0ZvcN7iUvMfTsitSfz1": {
-    nama: "Andi Wijaya",
-    nik: "KLN-0009",
-    jabatan: "Sales Executive",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Tetap (Masuk 1 Jun 2021)",
-  },
-  // Larasati Dewi (KLN-0010)
-  "1c5a8b5d-7360-584f-85bf-98b455254054": {
-    nama: "Larasati Dewi",
-    nik: "KLN-0010",
-    jabatan: "Staf Akuntansi",
-    divisi: "Keuangan",
-    status_kerja: "Karyawan Tetap (Masuk 13 Sep 2021)",
-  },
-  "p1fyCjgpnAPCygmfpmzhVhl3zEQ2": {
-    nama: "Larasati Dewi",
-    nik: "KLN-0010",
-    jabatan: "Account Executive",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Tetap (Masuk 15 Jan 2022)",
-  },
-  // Putri Lestari (KLN-0012)
-  "a1eae53e-5cba-50f7-9211-4eec3c1d1f6d": {
-    nama: "Putri Lestari",
-    nik: "KLN-0012",
-    jabatan: "Sales Executive",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Tetap (Masuk 14 Feb 2022)",
-  },
-  "NFgLLDC7cveTHEQZSEcBCNQZRUu2": {
-    nama: "Putri Lestari",
-    nik: "KLN-0012",
-    jabatan: "Telemarketing Specialist",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Kontrak (Masuk 1 Agu 2023)",
-  },
-  // Siti Nurhaliza (KLN-0006)
-  "24173534-3de4-5c18-bc67-d3034545c061": {
-    nama: "Siti Nurhaliza",
-    nik: "KLN-0006",
-    jabatan: "Supervisor Gudang",
-    divisi: "Operasional Gudang",
-    status_kerja: "Karyawan Tetap (Masuk 14 Sep 2020)",
-  },
-  // Agus Salim (KLN-0008)
-  "22c1e137-9c79-5bae-a1e2-4dda8edffd71": {
-    nama: "Agus Salim",
-    nik: "KLN-0008",
-    jabatan: "Staf Gudang",
-    divisi: "Operasional Gudang",
-    status_kerja: "Karyawan Tetap (Masuk 1 Mar 2021)",
-  },
-  // Yoga Permana (KLN-0016)
-  "d79cc2a2-8d5e-5530-b55e-e063bf1542ca": {
-    nama: "Yoga Permana",
-    nik: "KLN-0016",
-    jabatan: "Sales Executive",
-    divisi: "Penjualan",
-    status_kerja: "Karyawan Kontrak (Masuk 5 Agu 2024)",
-  },
-  // Bambang Hartono (KLN-0014)
-  "c2b680c2-b18e-590b-88db-fa6b74e1a9fd": {
-    nama: "Bambang Hartono",
-    nik: "KLN-0014",
-    jabatan: "Staf Keuangan",
-    divisi: "Keuangan",
-    status_kerja: "Karyawan Kontrak (Masuk 3 Apr 2023)",
-  },
-  // Fajar Nugroho (KLN-0013)
-  "ab650d98-91c6-547c-b2a3-ad28dd51d16b": {
-    nama: "Fajar Nugroho",
-    nik: "KLN-0013",
-    jabatan: "Staf Gudang",
-    divisi: "Operasional Gudang",
-    status_kerja: "Karyawan Kontrak (Masuk 9 Jan 2023)",
-  },
-  // Wulan Sari (KLN-0015)
-  "ceb0527e-312c-5e4c-b287-4f9ddb431a9a": {
-    nama: "Wulan Sari",
-    nik: "KLN-0015",
-    jabatan: "Admin Gudang",
-    divisi: "Operasional Gudang",
-    status_kerja: "Karyawan Kontrak (Masuk 20 Mei 2024)",
-  },
-  // Dimas Pratama (KLN-0011)
-  "8db8c644-85b2-5327-97fa-5fa1cfee7801": {
-    nama: "Dimas Pratama",
-    nik: "KLN-0011",
-    jabatan: "Staf HR dan Payroll",
-    divisi: "Human Resources",
-    status_kerja: "Karyawan Tetap (Masuk 11 Jul 2022)",
-  },
-};
+// Master Profile Lookup Dinamis & Lengkap Berdasarkan ERD & Seed Profiles
+const profileById = new Map<string, any>();
+const profileByName = new Map<string, any>();
+const profileByNik = new Map<string, any>();
+(profilesData as Array<any>).forEach((p) => {
+  if (p.id) profileById.set(p.id, p);
+  if (p.nama_lengkap) profileByName.set(p.nama_lengkap.toLowerCase().trim(), p);
+  if (p.nik_karyawan) profileByNik.set(p.nik_karyawan.trim(), p);
+});
+
+const divisiNameById = new Map<string, string>();
+(divisiData as Array<any>).forEach((d) => {
+  if (d.id) divisiNameById.set(d.id, d.nama);
+});
+
+const EMPLOYEE_PROFILES_LOOKUP: Record<string, { nama: string; nik: string; jabatan: string; divisi: string; status_kerja: string }> = {};
+(profilesData as Array<any>).forEach((p) => {
+  const dName = p["divisi (bantu)"] || divisiNameById.get(p.divisi_id) || "Penjualan";
+  const sKerja = p.status_kerja === "kontrak" ? "Karyawan Kontrak" : "Karyawan Tetap";
+  const entry = {
+    nama: p.nama_lengkap,
+    nik: p.nik_karyawan,
+    jabatan: p.jabatan,
+    divisi: dName,
+    status_kerja: sKerja,
+  };
+  if (p.id) EMPLOYEE_PROFILES_LOOKUP[p.id] = entry;
+  if (p.nik_karyawan) EMPLOYEE_PROFILES_LOOKUP[p.nik_karyawan] = entry;
+});
 
 const DEFAULT_QUEUE: ApprovalItem[] = [
   {
@@ -288,9 +216,33 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
     ? "Sakit"
     : "Izin";
 
+  // Lookup data karyawan asli secara presisi
+  const profile =
+    (item.karyawan_id ? profileById.get(item.karyawan_id) : null) ||
+    (item.nama_karyawan ? profileByName.get(item.nama_karyawan.toLowerCase().trim()) : null) ||
+    (item.nik_karyawan ? profileByNik.get(item.nik_karyawan.trim()) : null);
+
+  const rawNama = item.nama_karyawan;
+  const isDummyNama = !rawNama || rawNama.trim().toLowerCase() === "karyawan";
+  const finalNama = isDummyNama ? (profile?.nama_lengkap || "Andi Wijaya") : rawNama;
+
+  const rawNik = item.nik_karyawan;
+  const isDummyNik = !rawNik || rawNik === "KLN-0000";
+  const finalNik = isDummyNik ? (profile?.nik_karyawan || "KLN-0009") : rawNik;
+
+  const finalDivisi =
+    item.divisi_nama ||
+    (item.divisi_id ? divisiNameById.get(item.divisi_id) : null) ||
+    profile?.["divisi (bantu)"] ||
+    (profile?.divisi_id ? divisiNameById.get(profile.divisi_id) : null) ||
+    "Penjualan";
+
+  const finalJabatan = item.jabatan || profile?.jabatan || "Staff";
+  const finalStatusKerja = item.status_kerja || (profile?.status_kerja === "kontrak" ? "Karyawan Kontrak" : "Karyawan Tetap");
+
   let atasanNama = "Maya Anggraini";
   let atasanJabatan = "Manajer Penjualan";
-  const div = item.divisi_nama?.toLowerCase() || "";
+  const div = finalDivisi.toLowerCase();
   if (div.includes("operasional") || div.includes("gudang")) {
     atasanNama = "Bayu Setiawan";
     atasanJabatan = "Manajer Operasional";
@@ -301,20 +253,6 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
     atasanNama = "Rina Kusumawardani";
     atasanJabatan = "Kepala HRD";
   }
-
-  // Lookup data karyawan asli agar tidak muncul 'Karyawan' atau 'KLN-0000'
-  const lookup = item.karyawan_id ? EMPLOYEE_PROFILES_LOOKUP[item.karyawan_id] : null;
-  const rawNama = item.nama_karyawan;
-  const isDummyNama = !rawNama || rawNama.trim().toLowerCase() === "karyawan";
-  const finalNama = isDummyNama ? (lookup?.nama || "Andi Wijaya") : rawNama;
-
-  const rawNik = item.nik_karyawan;
-  const isDummyNik = !rawNik || rawNik === "KLN-0000";
-  const finalNik = isDummyNik ? (lookup?.nik || "KLN-0009") : rawNik;
-
-  const finalJabatan = item.jabatan || lookup?.jabatan || "Staff";
-  const finalDivisi = item.divisi_nama || lookup?.divisi || "Penjualan";
-  const finalStatusKerja = item.status_kerja || lookup?.status_kerja || "Karyawan Tetap";
 
   const tMulai = item.tanggal_mulai || "2026-10-26";
   const tSelesai = item.tanggal_selesai || tMulai;
@@ -369,8 +307,27 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
   };
 }
 
+const formatShortId = (rawId: string) => {
+  if (!rawId) return "";
+  const clean = rawId.trim();
+  if (clean.includes("-") && clean.length >= 20) {
+    const firstChunk = clean.split("-")[0];
+    return `#${firstChunk.toUpperCase()}`;
+  }
+  return `#${clean.toUpperCase()}`;
+};
+
 export default function PersetujuanPage() {
   const { user } = useAuth();
+  const [copiedId, setCopiedId] = useState(false);
+
+  const handleCopyId = (fullId: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(fullId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
   const [selectedId, setSelectedId] = useState("cuti-01");
   const [statusMap, setStatusMap] = useState<Record<string, "diajukan" | "disetujui_atasan" | "disetujui" | "ditolak" | "dibatalkan">>({
     "cuti-01": "diajukan",
@@ -394,7 +351,7 @@ export default function PersetujuanPage() {
     }
   }, [alertSuccess]);
 
-  // Tab Filter: "perlu_tindakan" | "riwayat_selesai"
+  // Tab Filter: "perlu_tindakan" | "riwayat_selesai" Sesuai PRD Bab 7
   const [filterTab, setFilterTab] = useState<"perlu_tindakan" | "riwayat_selesai">("perlu_tindakan");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -421,22 +378,38 @@ export default function PersetujuanPage() {
 
       // 3. Filter sesuai hak akses peran pengguna
       if (user?.peran === "atasan") {
-        const myDivName = (user?.divisi_nama || "penjualan").toLowerCase();
+        const myDivName = (user?.divisi_nama || (user as any)?.["divisi (bantu)"] || (user as any)?.divisi || "penjualan").toLowerCase().trim();
+        const userUid = user.id;
+        const userSeedId = (user as any)?.seed_id;
+        const userNik = user.nik_karyawan;
+
         combined = combined.filter((item) => {
-          // Jangan tampilkan permohonan milik atasan itu sendiri
-          const isSelf = item.karyawan_id === user.id || item.nik === user.nik_karyawan;
+          // Jangan tampilkan permohonan milik atasan itu sendiri (PRD BR-09)
+          const isSelf =
+            (userUid && item.karyawan_id === userUid) ||
+            (userSeedId && item.karyawan_id === userSeedId) ||
+            (userNik && item.nik === userNik) ||
+            (user.nama_lengkap && item.nama.toLowerCase() === user.nama_lengkap.toLowerCase());
           if (isSelf) return false;
 
-          const itemDiv = item.divisi.toLowerCase();
+          const itemDiv = (item.divisi || "").toLowerCase().trim();
           return (
-            itemDiv.includes(myDivName) ||
-            myDivName.includes(itemDiv) ||
-            item.divisi_id === user.divisi_id
+            (myDivName && itemDiv.includes(myDivName)) ||
+            (itemDiv && myDivName.includes(itemDiv)) ||
+            (user.divisi_id && item.divisi_id === user.divisi_id)
           );
         });
       } else if (user?.peran === "hrd") {
+        const userUid = user.id;
+        const userSeedId = (user as any)?.seed_id;
+        const userNik = user.nik_karyawan;
+
         combined = combined.filter((item) => {
-          const isSelf = item.karyawan_id === user.id || item.nik === user.nik_karyawan;
+          const isSelf =
+            (userUid && item.karyawan_id === userUid) ||
+            (userSeedId && item.karyawan_id === userSeedId) ||
+            (userNik && item.nik === userNik) ||
+            (user.nama_lengkap && item.nama.toLowerCase() === user.nama_lengkap.toLowerCase());
           return !isSelf;
         });
       }
@@ -463,26 +436,43 @@ export default function PersetujuanPage() {
           localConverted.forEach((item) => {
             if (!mapFs.has(item.id)) mapFs.set(item.id, item);
           });
-          DEFAULT_QUEUE.forEach((item) => {
-            if (!mapFs.has(item.id)) mapFs.set(item.id, item);
-          });
 
           let fsCombined = Array.from(mapFs.values());
           if (user?.peran === "atasan") {
-            const myDivName = (user?.divisi_nama || "penjualan").toLowerCase();
+            const myDivName = (user?.divisi_nama || (user as any)?.["divisi (bantu)"] || (user as any)?.divisi || "penjualan").toLowerCase().trim();
+            const userUid = user.id;
+            const userSeedId = (user as any)?.seed_id;
+            const userNik = user.nik_karyawan;
+            const userNama = user.nama_lengkap?.toLowerCase().trim();
+
             fsCombined = fsCombined.filter((item) => {
-              const isSelf = item.karyawan_id === user.id || item.nik === user.nik_karyawan;
+              // Jangan tampilkan permohonan milik atasan itu sendiri (PRD BR-09)
+              const isSelf =
+                (userUid && item.karyawan_id === userUid) ||
+                (userSeedId && item.karyawan_id === userSeedId) ||
+                (userNik && item.nik === userNik) ||
+                (userNama && item.nama.toLowerCase().trim() === userNama);
               if (isSelf) return false;
-              const itemDiv = item.divisi.toLowerCase();
+
+              const itemDiv = (item.divisi || "").toLowerCase().trim();
               return (
-                itemDiv.includes(myDivName) ||
-                myDivName.includes(itemDiv) ||
-                item.divisi_id === user.divisi_id
+                (myDivName && itemDiv.includes(myDivName)) ||
+                (itemDiv && myDivName.includes(itemDiv)) ||
+                (user.divisi_id && item.divisi_id === user.divisi_id)
               );
             });
           } else if (user?.peran === "hrd") {
+            const userUid = user.id;
+            const userSeedId = (user as any)?.seed_id;
+            const userNik = user.nik_karyawan;
+            const userNama = user.nama_lengkap?.toLowerCase().trim();
+
             fsCombined = fsCombined.filter((item) => {
-              const isSelf = item.karyawan_id === user.id || item.nik === user.nik_karyawan;
+              const isSelf =
+                (userUid && item.karyawan_id === userUid) ||
+                (userSeedId && item.karyawan_id === userSeedId) ||
+                (userNik && item.nik === userNik) ||
+                (userNama && item.nama.toLowerCase().trim() === userNama);
               return !isSelf;
             });
           }
@@ -529,7 +519,7 @@ export default function PersetujuanPage() {
     return allQueue.filter((item) => !isPendingForUser(item.id)).length;
   }, [allQueue, statusMap, user?.peran]);
 
-  // Antrean yang disaring berdasarkan Tab & Pencarian
+  // Antrean yang disaring berdasarkan Tab & Pencarian Sesuai PRD Bab 7
   const filteredQueue = useMemo(() => {
     return allQueue.filter((item) => {
       const matchesTab =
@@ -622,6 +612,82 @@ export default function PersetujuanPage() {
       );
     }
     setAlasanPenolakan("");
+
+    // PRD Bab 11: Integrasi Notifikasi Email
+    const applicantEmail =
+      (activeItem as any)?.email ||
+      (activeItem.nama?.toLowerCase().includes("andi")
+        ? "andi.wijaya@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("larasati")
+        ? "larasati.dewi@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("putri")
+        ? "putri.lestari@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("siti")
+        ? "siti.nurhaliza@karsalintas.test"
+        : `${activeItem.nama.toLowerCase().replace(/\s+/g, ".")}@karsalintas.test`);
+
+    if (isAtasan) {
+      // Email ke HRD saat pengajuan menunggu keputusan akhir (PRD Bab 11)
+      sendEmailNotification({
+        type: "LEAVE_PENDING_HRD",
+        toEmail: "rina.kusumawardani@karsalintas.test",
+        toName: "Rina Kusumawardani (Kepala HRD)",
+        subject: `[KarsaHR] Menunggu Keputusan HRD: ${activeItem.jenis} - ${activeItem.nama}`,
+        title: "Permohonan Cuti/Izin Menunggu Keputusan Akhir HRD",
+        message: `Permohonan telah disetujui tahap 1 oleh Atasan (${approverName}) dan saat ini membutuhkan keputusan akhir HRD.`,
+        badgeText: "Menunggu Keputusan HRD",
+        badgeColor: "#d97706",
+        summaryItems: [
+          { label: "Pemohon", value: `${activeItem.nama} (${activeItem.nik})` },
+          { label: "Divisi", value: activeItem.divisi },
+          { label: "Jenis Pengajuan", value: activeItem.jenis },
+          { label: "Periode", value: `${activeItem.tanggal_mulai} s/d ${activeItem.tanggal_selesai}` },
+          { label: "Durasi Efektif", value: `${activeItem.jumlah_hari} Hari Kerja` },
+          { label: "Disetujui Tahap 1", value: approverName },
+        ],
+        actionPath: "/persetujuan",
+        actionText: "Proses Keputusan Akhir di KarsaHR",
+      }).catch(() => {});
+
+      // Email update ke Pemohon
+      sendEmailNotification({
+        type: "LEAVE_STATUS_UPDATED",
+        toEmail: applicantEmail,
+        toName: activeItem.nama,
+        subject: `[KarsaHR] Update Pengajuan: Disetujui Tahap 1 oleh Atasan`,
+        title: "Permohonan Anda Telah Disetujui Tahap 1",
+        message: "Atasan divisi Anda telah menyetujui permohonan. Pengajuan kini diteruskan ke HRD untuk verifikasi akhir.",
+        badgeText: "Disetujui Atasan",
+        badgeColor: "#2563eb",
+        summaryItems: [
+          { label: "Jenis Pengajuan", value: activeItem.jenis },
+          { label: "Periode", value: `${activeItem.tanggal_mulai} s/d ${activeItem.tanggal_selesai}` },
+          { label: "Status Terkini", value: "Disetujui Tahap 1 (Menunggu HRD)" },
+        ],
+        actionPath: "/cuti",
+        actionText: "Cek Status di KarsaHR",
+      }).catch(() => {});
+    } else {
+      // Email ke Pemohon saat pengajuan disetujui akhir oleh HRD (PRD Bab 11)
+      sendEmailNotification({
+        type: "LEAVE_STATUS_UPDATED",
+        toEmail: applicantEmail,
+        toName: activeItem.nama,
+        subject: `[KarsaHR] Pengajuan Disetujui: ${activeItem.jenis}`,
+        title: "Selamat, Permohonan Cuti/Izin Anda Telah Disetujui",
+        message: "Permohonan cuti/izin Anda telah disetujui sepenuhnya oleh pihak Manajemen dan HRD.",
+        badgeText: "Disetujui Penuh",
+        badgeColor: "#059669",
+        summaryItems: [
+          { label: "Jenis Pengajuan", value: activeItem.jenis },
+          { label: "Periode", value: `${activeItem.tanggal_mulai} s/d ${activeItem.tanggal_selesai}` },
+          { label: "Durasi Disetujui", value: `${activeItem.jumlah_hari} Hari Kerja` },
+          { label: "Disetujui Oleh", value: approverName },
+        ],
+        actionPath: "/cuti",
+        actionText: "Lihat Bukti Persetujuan",
+      }).catch(() => {});
+    }
   };
 
   // Handler Penolakan (PRD BR-09: Penolakan wajib disertai alasan minimal 10 karakter)
@@ -665,6 +731,39 @@ export default function PersetujuanPage() {
       `Permohonan ${activeItem.nama} telah ditolak.`
     );
     setAlasanPenolakan("");
+
+    // PRD Bab 11: Email ke Pemohon saat pengajuan ditolak
+    const applicantEmail =
+      (activeItem as any)?.email ||
+      (activeItem.nama?.toLowerCase().includes("andi")
+        ? "andi.wijaya@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("larasati")
+        ? "larasati.dewi@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("putri")
+        ? "putri.lestari@karsalintas.test"
+        : activeItem.nama?.toLowerCase().includes("siti")
+        ? "siti.nurhaliza@karsalintas.test"
+        : `${activeItem.nama.toLowerCase().replace(/\s+/g, ".")}@karsalintas.test`);
+
+    sendEmailNotification({
+      type: "LEAVE_STATUS_UPDATED",
+      toEmail: applicantEmail,
+      toName: activeItem.nama,
+      subject: `[KarsaHR] Pemberitahuan Penolakan: ${activeItem.jenis}`,
+      title: "Pemberitahuan Status Permohonan Cuti/Izin",
+      message: "Mohon maaf, permohonan cuti/izin yang Anda ajukan belum dapat disetujui.",
+      badgeText: "Ditolak",
+      badgeColor: "#dc2626",
+      summaryItems: [
+        { label: "Jenis Pengajuan", value: activeItem.jenis },
+        { label: "Periode", value: `${activeItem.tanggal_mulai} s/d ${activeItem.tanggal_selesai}` },
+        { label: "Ditolak Oleh", value: rejecterName },
+        { label: "Alasan Penolakan", value: rejectReason },
+      ],
+      note: `Alasan penolakan: "${rejectReason}". Kuota cuti Anda telah dikembalikan secara otomatis.`,
+      actionPath: "/cuti",
+      actionText: "Lihat Status di KarsaHR",
+    }).catch(() => {});
   };
 
   const renderStatusBadge = (st: string) => {
@@ -707,7 +806,7 @@ export default function PersetujuanPage() {
   const kuotaPercentage = Math.round((activeItem.kuota_terpakai / activeItem.kuota_jatah) * 100);
 
   return (
-    <AppLayout fullBleed>
+    <>
       {/* Toast Notification Melayang di Pojok Kanan Atas (Auto-dismiss 4 detik) */}
       {alertSuccess && (
         <div className="floating-toast-container" role="status" aria-live="polite">
@@ -771,7 +870,7 @@ export default function PersetujuanPage() {
               </span>
             </div>
 
-            {/* Segmented Control: Tab Perlu Tindakan & Riwayat Selesai */}
+            {/* Segmented Control: Tab Perlu Tindakan & Riwayat Selesai Sesuai PRD Bab 7 */}
             <div className="persetujuan-tabs-wrap">
               <button
                 type="button"
@@ -908,7 +1007,25 @@ export default function PersetujuanPage() {
                     <span>/</span>
                     <span>Divisi {activeItem.divisi}</span>
                     <span>/</span>
-                    <span className="detail-id-code">ID: #{activeItem.id.toUpperCase()}</span>
+                    <button
+                      type="button"
+                      className="detail-id-code"
+                      title={`Klik untuk menyalin ID lengkap: ${activeItem.id}`}
+                      onClick={() => handleCopyId(activeItem.id)}
+                    >
+                      <span>ID: {formatShortId(activeItem.id)}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.65 }}>
+                        {copiedId ? (
+                          <polyline points="20 6 9 17 4 12" />
+                        ) : (
+                          <>
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </>
+                        )}
+                      </svg>
+                      {copiedId && <span style={{ color: "#16a34a", fontWeight: 700, fontSize: "0.625rem" }}>Tersalin</span>}
+                    </button>
                   </div>
                   <h2 className="detail-main-heading">
                     Pengajuan {activeItem.jenis}: {activeItem.nama}
@@ -1411,6 +1528,6 @@ export default function PersetujuanPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

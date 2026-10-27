@@ -838,13 +838,7 @@ export default function CutiPage() {
       // Perbarui status override di leave store
       updateLeaveStatusOverride(item.id, "dibatalkan", user?.nama_lengkap || user?.id);
 
-      // PRD BR-06 & BR-10: Kembalikan saldo kuota cuti tahunan
-      const isTahunan = item.jenis === "cuti_tahunan" || item.jenis?.toLowerCase().includes("tahunan") || item.jenis === "Cuti tahunan";
-      if (isTahunan && item.jumlah_hari > 0) {
-        refundLeaveQuotaStore(item.karyawan_id || user?.id || user?.nik_karyawan || user?.nama_lengkap, item.jumlah_hari);
-      }
-
-      // Panggil service pembatalan Firestore
+      // PRD BR-06 & BR-10: Kembalikan saldo kuota cuti tahunan via service pembatalan
       if (user?.id) {
         try {
           await cancelLeaveRequestInFirestore(item.id, user.id, item.jumlah_hari, item.jenis);

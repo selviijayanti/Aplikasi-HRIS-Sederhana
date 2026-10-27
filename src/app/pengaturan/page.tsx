@@ -22,6 +22,7 @@ import {
   deleteHoliday,
 } from "@/lib/firebase/holiday-service";
 import { deduplicateAuditLogs } from "@/lib/firebase/audit-service";
+import { calculateAccurateLeaveQuota } from "@/lib/utils/leave-store";
 
 // Helper Pencarian Nama Asli Karyawan dari Master profiles.json
 function resolveSeedEmployeeName(karyawanId: string, fallback?: string): string {
@@ -1455,7 +1456,22 @@ export default function PengaturanPage() {
                   </tr>
                 ) : (
                   filteredKuotaList.map((k, idx) => {
-                    const sisa = Number(k.jatah_hari) - Number(k.terpakai_hari);
+                    const isCurrentYear = Number(k.tahun) === 2026;
+                    const accurate = isCurrentYear
+                      ? calculateAccurateLeaveQuota(
+                          { id: k.karyawan_id, nama_lengkap: k["nama (bantu)"] },
+                          2026
+                        )
+                      : {
+                          jatahHari: Number(k.jatah_hari),
+                          terpakai: Number(k.terpakai_hari),
+                          sisa: Number(k.jatah_hari) - Number(k.terpakai_hari),
+                        };
+                    const jatahDisplay = isCurrentYear ? accurate.jatahHari : Number(k.jatah_hari);
+                    const terpakaiDisplay = isCurrentYear ? accurate.terpakai : Number(k.terpakai_hari);
+                    const sisa = isCurrentYear
+                      ? accurate.sisa
+                      : Number(k.jatah_hari) - Number(k.terpakai_hari);
                     const rowKey = `${k.id || k.karyawan_id}_${k.tahun}_${idx}`;
                     return (
                       <tr key={rowKey}>
@@ -1463,8 +1479,8 @@ export default function PengaturanPage() {
                         <td style={{ textAlign: "center" }}>
                           <span className="font-mono font-bold text-dark">{k.tahun}</span>
                         </td>
-                        <td className="font-bold">{k.jatah_hari} hari</td>
-                        <td>{k.terpakai_hari} hari</td>
+                        <td className="font-bold">{jatahDisplay} hari</td>
+                        <td>{terpakaiDisplay} hari</td>
                         <td>
                           <span className={`status-pill ${sisa > 0 ? "hadir" : "terlambat"}`}>
                             {sisa} hari
@@ -1476,7 +1492,14 @@ export default function PengaturanPage() {
                         <td style={{ textAlign: "right", paddingRight: "1rem" }}>
                           <button
                             type="button"
-                            onClick={() => handleOpenEditKuota(k)}
+                            onClick={() =>
+                              handleOpenEditKuota({
+                                ...k,
+                                jatah_hari: jatahDisplay,
+                                terpakai_hari: terpakaiDisplay,
+                                "sisa (bantu)": sisa,
+                              })
+                            }
                             className="btn-action-edit"
                             title={`Ubah jatah cuti tahunan untuk ${k["nama (bantu)"]}`}
                           >

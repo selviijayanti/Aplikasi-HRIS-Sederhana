@@ -6,6 +6,24 @@ import { useAuth } from "@/lib/auth/auth-context";
 import AppLayout from "@/components/layout/AppLayout";
 import { formatRupiah } from "@/lib/utils/time";
 import { exportToCSV } from "@/lib/utils/csv";
+import slipGajiSeed from "../../../data/seeds/slip_gaji.json";
+import profilesSeed from "../../../data/seeds/profiles.json";
+
+// Pemetaan divisi resmi karyawan KarsaHR untuk kalkulasi dinamis rekapitulasi gaji (PRD BR-11)
+const EMPLOYEE_DIV_MAP: Record<string, string> = {};
+(profilesSeed as any[]).forEach((p) => {
+  const divName =
+    p["divisi (bantu)"] ||
+    (p.divisi_id === "8865d249-d46e-5207-bf19-1b9163f5e954"
+      ? "Operasional Gudang"
+      : p.divisi_id === "867481d0-6289-54a1-87db-47bb81db15ef"
+      ? "Penjualan"
+      : p.divisi_id === "400c86ae-d2db-5185-b2d3-db5f60a08649"
+      ? "Keuangan"
+      : "Human Resources");
+  if (p.id) EMPLOYEE_DIV_MAP[p.id] = divName;
+  if (p.nik_karyawan) EMPLOYEE_DIV_MAP[p.nik_karyawan] = divName;
+});
 
 interface PeriodeConfig {
   key: string;
@@ -115,7 +133,7 @@ const SEED_DATA_MAP: Record<string, any> = {
     tepatWaktuPersen: "93,5%",
     avgSisaCuti: "5,4",
     pengajuanMenunggu: 4,
-    statusGaji: "draf cut-off, khusus HRD",
+    statusGaji: "0 slip terbit (16 draf belum terbit, khusus HRD)",
     attendanceData: [
       {
         label: "21 Sep",
@@ -217,10 +235,10 @@ const SEED_DATA_MAP: Record<string, any> = {
       },
     ],
     rekapGaji: [
-      { divisi: "Operasional Gudang", slip_terbit: 6, pokok_tunjangan: 56000000, potongan: 1980000, total_diterima: 54020000 },
-      { divisi: "Penjualan", slip_terbit: 5, pokok_tunjangan: 50350000, potongan: 2210000, total_diterima: 48140000 },
-      { divisi: "Keuangan", slip_terbit: 3, pokok_tunjangan: 34600000, potongan: 1212000, total_diterima: 33388000 },
-      { divisi: "Human Resources", slip_terbit: 2, pokok_tunjangan: 27200000, potongan: 952000, total_diterima: 26248000 },
+      { divisi: "Operasional Gudang", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Penjualan", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Keuangan", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Human Resources", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
     ],
     keterlambatan: [
       { nama: "Rizky Ramadhan", divisi: "Operasional Gudang", kali: 4 },
@@ -584,7 +602,7 @@ function generateFallbackData(key: string, namaBulan: string, isCurrent: boolean
     tepatWaktuPersen: isCurrent ? "93,5%" : "94,8%",
     avgSisaCuti: "5,4",
     pengajuanMenunggu: isCurrent ? 4 : 0,
-    statusGaji: isCurrent ? "draf cut-off, khusus HRD" : "slip terbit, khusus HRD",
+    statusGaji: isCurrent ? "0 slip terbit (16 draf belum terbit, khusus HRD)" : "slip terbit, khusus HRD",
     attendanceData: [
       {
         label: "Minggu 1",
@@ -685,7 +703,12 @@ function generateFallbackData(key: string, namaBulan: string, isCurrent: boolean
         heightOktober: "0%",
       },
     ],
-    rekapGaji: [
+    rekapGaji: isCurrent ? [
+      { divisi: "Operasional Gudang", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Penjualan", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Keuangan", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+      { divisi: "Human Resources", slip_terbit: 0, pokok_tunjangan: 0, potongan: 0, total_diterima: 0 },
+    ] : [
       { divisi: "Operasional Gudang", slip_terbit: 6, pokok_tunjangan: 56000000, potongan: 1948000, total_diterima: 54052000 },
       { divisi: "Penjualan", slip_terbit: 5, pokok_tunjangan: 50350000, potongan: 2190000, total_diterima: 48160000 },
       { divisi: "Keuangan", slip_terbit: 3, pokok_tunjangan: 34600000, potongan: 1212000, total_diterima: 33388000 },
@@ -892,6 +915,28 @@ export default function LaporanPage() {
   const [divisiFilter, setDivisiFilter] = useState("Semua Divisi");
   const [hoveredWeekIdx, setHoveredWeekIdx] = useState<number | null>(null);
   const [hoveredDivisiIdx, setHoveredDivisiIdx] = useState<number | null>(null);
+  const [liveSlips, setLiveSlips] = useState<any[]>(slipGajiSeed);
+
+  // Sinkronisasi data slip gaji dari localStorage & storage event
+  useEffect(() => {
+    const syncSlips = () => {
+      try {
+        const stored = localStorage.getItem("karsahr_slip_gaji_store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLiveSlips(parsed);
+            return;
+          }
+        }
+      } catch {}
+      setLiveSlips(slipGajiSeed);
+    };
+
+    syncSlips();
+    window.addEventListener("storage", syncSlips);
+    return () => window.removeEventListener("storage", syncSlips);
+  }, []);
 
   // Guard: Hanya peran HRD yang boleh mengakses laporan & rekap gaji (PRD BR-11 & NFR-3)
   useEffect(() => {
@@ -965,14 +1010,79 @@ export default function LaporanPage() {
     syncQueryParams(activePeriod.start_date, activePeriod.end_date, newDivisi);
   };
 
+  // Hitung rekap gaji dinamis per divisi HANYA untuk slip yang berstatus 'terbit' (PRD BR-11 & Bab 9 butir 4)
+  const dynamicSalaryData = useMemo(() => {
+    const DIVISIONS = ["Operasional Gudang", "Penjualan", "Keuangan", "Human Resources"];
+    const periodKey = selectedPeriodeKey;
+
+    // Filter slip yang masuk dalam periode terpilih
+    const matchingSlips = liveSlips.filter((s) => {
+      if (!s.periode) return false;
+      if (periodKey.includes("Q")) {
+        const [y, q] = periodKey.split("-");
+        if (!s.periode.startsWith(y)) return false;
+        const m = parseInt(s.periode.split("-")[1], 10);
+        if (q === "Q1") return m >= 1 && m <= 3;
+        if (q === "Q2") return m >= 4 && m <= 6;
+        if (q === "Q3") return m >= 7 && m <= 9;
+        if (q === "Q4") return m >= 10 && m <= 12;
+        return false;
+      }
+      return s.periode.startsWith(periodKey);
+    });
+
+    // PRD BR-11: Rekap gaji HANYA menghitung slip yang berstatus 'terbit'
+    const publishedSlips = matchingSlips.filter((s) => s.status === "terbit");
+    const draftSlips = matchingSlips.filter((s) => s.status !== "terbit");
+
+    const rekap = DIVISIONS.map((divName) => {
+      const divSlips = publishedSlips.filter((s) => {
+        const empDiv = EMPLOYEE_DIV_MAP[s.karyawan_id] || "";
+        return empDiv.toLowerCase().includes(divName.toLowerCase()) || divName.toLowerCase().includes(empDiv.toLowerCase());
+      });
+
+      const slip_terbit = divSlips.length;
+      const pokok_tunjangan = divSlips.reduce((acc, s) => acc + (Number(s.gaji_pokok) || 0) + (Number(s.tunjangan) || 0), 0);
+      const potongan = divSlips.reduce((acc, s) => acc + (Number(s.potongan) || 0), 0);
+      const total_diterima = divSlips.reduce((acc, s) => acc + (Number(s.total_diterima) || 0), 0);
+
+      return {
+        divisi: divName,
+        slip_terbit,
+        pokok_tunjangan,
+        potongan,
+        total_diterima,
+      };
+    });
+
+    let statusGaji = "";
+    if (publishedSlips.length === 0 && draftSlips.length > 0) {
+      statusGaji = `0 slip terbit (${draftSlips.length} draf belum dihitung) - khusus HRD`;
+    } else if (publishedSlips.length > 0 && draftSlips.length > 0) {
+      statusGaji = `${publishedSlips.length} slip terbit (${draftSlips.length} draf belum dihitung) - khusus HRD`;
+    } else if (publishedSlips.length > 0) {
+      statusGaji = `${publishedSlips.length} slip terbit, khusus HRD`;
+    } else {
+      statusGaji = "0 slip terbit, khusus HRD";
+    }
+
+    return {
+      rekap,
+      statusGaji,
+      publishedCount: publishedSlips.length,
+      draftCount: draftSlips.length,
+    };
+  }, [liveSlips, selectedPeriodeKey]);
+
   const filteredRekapGaji = useMemo(() => {
-    if (divisiFilter === "Semua Divisi") return activePeriod.rekapGaji;
-    return activePeriod.rekapGaji.filter((r) =>
+    const baseRekap = dynamicSalaryData.rekap;
+    if (divisiFilter === "Semua Divisi") return baseRekap;
+    return baseRekap.filter((r) =>
       r.divisi.toLowerCase().includes(divisiFilter.toLowerCase()) ||
       (divisiFilter === "Operasional" && r.divisi.includes("Operasional")) ||
       (divisiFilter === "HRD" && r.divisi.includes("Human"))
     );
-  }, [divisiFilter, activePeriod]);
+  }, [divisiFilter, dynamicSalaryData.rekap]);
 
   const filteredKeterlambatan = useMemo(() => {
     if (divisiFilter === "Semua Divisi") return activePeriod.keterlambatan;
@@ -1476,7 +1586,7 @@ export default function LaporanPage() {
 
           {/* Tabel Rekap gaji */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="section-title">Rekap gaji {activePeriod.namaBulan} ({activePeriod.statusGaji})</h3>
+            <h3 className="section-title">Rekap gaji {activePeriod.namaBulan} ({dynamicSalaryData.statusGaji || activePeriod.statusGaji})</h3>
             <div className="ui-table-wrap">
               <table className="ui-table">
                 <thead>
@@ -1509,6 +1619,43 @@ export default function LaporanPage() {
                 </tbody>
               </table>
             </div>
+
+            {dynamicSalaryData.draftCount > 0 && (
+              <div
+                style={{
+                  marginTop: "0.875rem",
+                  padding: "0.75rem 0.875rem",
+                  backgroundColor: "#f8fafc",
+                  borderRadius: "8px",
+                  border: "1px dashed #cbd5e1",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "0.625rem",
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0284c7"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ flexShrink: 0, marginTop: "2px" }}
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <div>
+                  <strong style={{ color: "#334155" }}>Kebijakan PRD BR-11:</strong> Rekap gaji hanya menghitung slip yang berstatus <strong>Terbit</strong>. Sebanyak {dynamicSalaryData.draftCount} slip pada periode {activePeriod.namaBulan} masih berstatus draf sehingga tidak dihitung ke dalam rekapitulasi penggajian per divisi.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -931,10 +931,7 @@ export default function PersetujuanPage() {
         cancelTargetItem.karyawan_id
       );
 
-      // 2. Kembalikan kuota cuti tahunan utuh jika cuti tahunan
-      if (cancelTargetItem.jenis === "Cuti tahunan") {
-        refundLeaveQuotaStore(cancelTargetItem.karyawan_id || cancelTargetItem.nik, cancelTargetItem.jumlah_hari);
-      }
+      // 2. Kuota cuti tahunan dikembalikan otomatis oleh updateLeaveApprovalInFirestore (PRD BR-06 & BR-10)
 
       // 3. Update local states
       setStatusMap((prev) => ({ ...prev, [cancelTargetItem.id]: "dibatalkan" }));
@@ -1030,24 +1027,29 @@ export default function PersetujuanPage() {
     }
   };
 
-  // Hitung saldo kuota pemohon secara dinamis (PRD BR-06 & BR-10: Penolakan/pembatalan mengembalikan saldo kuota)
+  // Hitung saldo kuota pemohon secara dinamis (PRD BR-06 & BR-10: Sinkron dengan single source of truth)
   const dynamicQuota = useMemo(() => {
-    const isTahunan = activeItem.jenis === "Cuti tahunan";
-    const jatah = activeItem.kuota_jatah || 12;
-    let terpakai = activeItem.kuota_terpakai || 0;
-
-    // Jika permohonan berstatus ditolak atau dibatalkan, kurangi dari terpakai
-    if ((currentStatus === "ditolak" || currentStatus === "dibatalkan") && isTahunan) {
-      terpakai = Math.max(0, terpakai - (activeItem.jumlah_hari || 0));
+    if (!activeItem) {
+      return { jatah: 12, terpakai: 0, sisa: 12, percentage: 0 };
     }
-    const sisa = Math.max(0, jatah - terpakai);
+    const accurate = calculateAccurateLeaveQuota(
+      {
+        id: activeItem.karyawan_id,
+        nik_karyawan: activeItem.nik,
+        nama_lengkap: activeItem.nama,
+      },
+      2026
+    );
+    const jatah = accurate.jatahHari || 12;
+    const terpakai = accurate.terpakai;
+    const sisa = accurate.sisa;
     return {
       jatah,
       terpakai,
       sisa,
       percentage: Math.min(100, Math.round((terpakai / jatah) * 100)),
     };
-  }, [activeItem, currentStatus]);
+  }, [activeItem, currentStatus, overridesRecord]);
 
   const kuotaPercentage = dynamicQuota.percentage;
 

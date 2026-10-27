@@ -108,15 +108,26 @@ import profilesData from "../../../data/seeds/profiles.json";
 
 /**
  * Mengembalikan kuota cuti tahunan di localStorage (PRD BR-06 & BR-10)
+ * Sinkronisasi idempotent dengan calculateAccurateLeaveQuota agar tidak pernah terjadi pengurangan ganda (double-refund).
  */
-export function refundLeaveQuotaStore(karyawanId: string, jumlahHari: number) {
-  if (typeof window === "undefined" || !karyawanId || jumlahHari <= 0) return;
+export function refundLeaveQuotaStore(karyawanId: string, _jumlahHari?: number) {
+  if (typeof window === "undefined" || !karyawanId) return;
   try {
     const profile = (profilesData as any[]).find(
       (p) =>
         p.id === karyawanId ||
         p.nik_karyawan === karyawanId ||
         p.nama_lengkap?.toLowerCase() === karyawanId?.toLowerCase()
+    );
+
+    const accurate = calculateAccurateLeaveQuota(
+      {
+        id: karyawanId,
+        seed_id: profile?.id,
+        nik_karyawan: profile?.nik_karyawan,
+        nama_lengkap: profile?.nama_lengkap || karyawanId,
+      },
+      2026
     );
 
     const raw = localStorage.getItem("karsahr_kuota_cuti_store");
@@ -134,16 +145,13 @@ export function refundLeaveQuotaStore(karyawanId: string, jumlahHari: number) {
 
         if (match && Number(item.tahun) === 2026) {
           changed = true;
-          const currentTerpakai = Number(item.terpakai_hari ?? item.terpakai ?? 0);
-          const jatah = Number(item.jatah_hari ?? item.jatah ?? 12);
-          const newTerpakai = Math.max(0, currentTerpakai - jumlahHari);
-          const newSisa = Math.max(0, jatah - newTerpakai);
           return {
             ...item,
-            terpakai_hari: newTerpakai,
-            terpakai: newTerpakai,
-            sisa_kuota: newSisa,
-            sisa: newSisa,
+            jatah_hari: accurate.jatahHari,
+            terpakai_hari: accurate.terpakai,
+            terpakai: accurate.terpakai,
+            sisa_kuota: accurate.sisa,
+            sisa: accurate.sisa,
             updated_at: new Date().toISOString(),
           };
         }
@@ -218,10 +226,11 @@ export interface AccurateLeaveQuota {
 /**
  * Single Source of Truth untuk perhitungan kuota cuti tahunan presisi
  * Sesuai aturan PRD BR-04 & BR-06:
- * - Jatah per tahun (default 12 hari)
- * - Hanya cuti tahunan aktif (diajukan, disetujui_atasan, disetujui) yang memotong kuota
- * - Ditolak dan dibatalkan TIDAK memotong kuota
- * - Dilakukan deduplikasi ketat agar tidak ada double counting
+ * - Jatah per tahun (default 12 hari atau sesuai pengaturan HRD)
+ * - Baseline terpakai awal tahun 2026 diambil dari kuotaCutiData
+ * - Pengajuan cuti baru aktif (diajukan, disetujui_atasan, disetujui) memotong kuota
+ * - Pengajuan ditolak dan dibatalkan TIDAK memotong kuota
+ * - Pengembalian kuota cuti (refund) terhitung persis 1 banding 1 secara idempotent
  */
 export function calculateAccurateLeaveQuota(
   userQuery: {
@@ -237,102 +246,97 @@ export function calculateAccurateLeaveQuota(
   const uid = userQuery.id;
   const seedId = userQuery.seed_id;
   const nik = userQuery.nik_karyawan;
-  const nama = userQuery.nama_lengkap?.toLowerCase();
+  const nama = userQuery.nama_lengkap?.toLowerCase()?.trim();
 
-  // 1. Master jatah kuota dari karsahr_kuota_cuti_store atau kuotaCutiData
+  // 1. Master jatah dan baseline terpakai dari kuotaCutiData / karsahr_kuota_cuti_store
   let masterJatah = 12;
-  try {
-    const list = (() => {
-      if (typeof window !== "undefined") {
-        const raw = localStorage.getItem("karsahr_kuota_cuti_store");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      }
-      return kuotaCutiData as Array<any>;
-    })();
+  let baseTerpakai = 0;
 
-    const qRec = list.find((k: any) => {
+  try {
+    const rawCustom = typeof window !== "undefined" ? localStorage.getItem("karsahr_kuota_cuti_store") : null;
+    const customList = rawCustom ? JSON.parse(rawCustom) : null;
+
+    // Cari di kuotaCutiData (seed baseline resmi 2026)
+    const seedRec = (kuotaCutiData as Array<any>).find((k: any) => {
       const yr = Number(k.tahun);
       if (yr !== targetYear) return false;
       if (uid && (k.karyawan_id === uid || k.karyawan_id === seedId)) return true;
       if (seedId && k.karyawan_id === seedId) return true;
       if (nik && k.nik_karyawan === nik) return true;
-      if (nama && k["nama (bantu)"]?.toLowerCase() === nama) return true;
+      if (nama && k["nama (bantu)"]?.toLowerCase()?.trim() === nama) return true;
       return false;
     });
 
-    if (qRec) {
-      masterJatah = Number(qRec.jatah_hari ?? qRec.jatah ?? 12);
+    if (seedRec) {
+      masterJatah = Number(seedRec.jatah_hari ?? seedRec.jatah ?? 12);
+      baseTerpakai = Number(seedRec.terpakai_hari ?? seedRec.terpakai ?? 0);
+    }
+
+    // Jika HRD pernah mengubah jatah_hari di menu Pengaturan, gunakan jatah_hari terbaru
+    if (Array.isArray(customList)) {
+      const customRec = customList.find((k: any) => {
+        const yr = Number(k.tahun);
+        if (yr !== targetYear) return false;
+        if (uid && (k.karyawan_id === uid || k.karyawan_id === seedId)) return true;
+        if (seedId && k.karyawan_id === seedId) return true;
+        if (nik && k.nik_karyawan === nik) return true;
+        if (nama && k["nama (bantu)"]?.toLowerCase()?.trim() === nama) return true;
+        return false;
+      });
+      if (customRec && customRec.jatah_hari !== undefined) {
+        masterJatah = Number(customRec.jatah_hari);
+      }
     }
   } catch {}
 
-  // 2. Kumpulkan seluruh permohonan cuti milik user dengan deduplikasi
   const overrides = explicitOverrides || getLeaveStatusOverrides();
   const submitted = explicitSubmitted || getSubmittedLeaves();
 
+  // 2. Cek apakah ada pengajuan seed bawaan (sebelum 15 Okt 2026) yang dibatalkan / ditolak
+  let cancelledSeedDays = 0;
   const userSeeds = (pengajuanCutiData as Array<any>).filter((p) => {
     if (uid && (p.karyawan_id === uid || p.karyawan_id === seedId)) return true;
     if (seedId && p.karyawan_id === seedId) return true;
     if (nik && p.nik_karyawan === nik) return true;
-    if (nama && p["pemohon (bantu)"]?.toLowerCase() === nama) return true;
+    if (nama && p["pemohon (bantu)"]?.toLowerCase()?.trim() === nama) return true;
     return false;
   });
 
+  userSeeds.forEach((item) => {
+    const sMulai = item.tanggal_mulai?.split("T")[0];
+    if (!sMulai || !sMulai.startsWith(String(targetYear))) return;
+    if (item.jenis !== "cuti_tahunan") return;
+
+    const aliasId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : undefined;
+    const currentStatus = (overrides[item.id]?.status || (aliasId && overrides[aliasId]?.status) || item.status || "disetujui").toLowerCase();
+    if (currentStatus === "dibatalkan" || currentStatus === "ditolak") {
+      cancelledSeedDays += Number(item.jumlah_hari) || 1;
+    }
+  });
+
+  // 3. Hitung hari kerja dari pengajuan baru di aplikasi (submitted leaves)
+  let activeSubmittedDays = 0;
   const userSubmitted = submitted.filter((s) => {
     if (uid && (s.karyawan_id === uid || s.karyawan_id === seedId)) return true;
     if (seedId && s.karyawan_id === seedId) return true;
     if (nik && s.nik_karyawan === nik) return true;
-    if (nama && s.nama_karyawan?.toLowerCase() === nama) return true;
+    if (nama && s.nama_karyawan?.toLowerCase()?.trim() === nama) return true;
     return false;
   });
 
-  const uniqueLeaves = new Map<string, { jumlah_hari: number; status: string }>();
-
-  // Masukkan dari seeds
-  userSeeds.forEach((item) => {
-    const sMulai = item.tanggal_mulai?.split("T")[0];
-    const sSelesai = (item.tanggal_selesai || item.tanggal_mulai)?.split("T")[0];
-    if (!sMulai || !sMulai.startsWith(String(targetYear))) return;
-    if (item.jenis !== "cuti_tahunan") return;
-
-    const rangeKey = `${sMulai}_${sSelesai}`;
-    const aliasId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : undefined;
-    const currentStatus = (overrides[item.id]?.status || (aliasId && overrides[aliasId]?.status) || item.status || "diajukan").toLowerCase();
-
-    uniqueLeaves.set(rangeKey, {
-      jumlah_hari: Number(item.jumlah_hari) || 1,
-      status: currentStatus,
-    });
-  });
-
-  // Masukkan dari submitted
   userSubmitted.forEach((item) => {
     const sMulai = item.tanggal_mulai?.split("T")[0];
-    const sSelesai = (item.tanggal_selesai || item.tanggal_mulai)?.split("T")[0];
     if (!sMulai || !sMulai.startsWith(String(targetYear))) return;
-    const isTahunan = item.jenis === "cuti_tahunan" || item.jenis?.toLowerCase().includes("tahunan");
+    const isTahunan = item.jenis === "cuti_tahunan" || item.jenis?.toLowerCase().includes("tahunan") || item.jenis === "Cuti tahunan";
     if (!isTahunan) return;
 
-    const rangeKey = `${sMulai}_${sSelesai}`;
     const currentStatus = (overrides[item.id]?.status || item.status || "diajukan").toLowerCase();
-
-    uniqueLeaves.set(rangeKey, {
-      jumlah_hari: Number(item.jumlah_hari) || 1,
-      status: currentStatus,
-    });
-  });
-
-  // 3. Hitung hari kerja aktif (diajukan, disetujui_atasan, disetujui)
-  let totalTerpakai = 0;
-  uniqueLeaves.forEach((val) => {
-    if (val.status === "diajukan" || val.status === "disetujui_atasan" || val.status === "disetujui") {
-      totalTerpakai += val.jumlah_hari;
+    if (currentStatus === "diajukan" || currentStatus === "disetujui_atasan" || currentStatus === "disetujui") {
+      activeSubmittedDays += Number(item.jumlah_hari) || 1;
     }
   });
 
-  const terpakai = Math.min(masterJatah, Math.max(0, totalTerpakai));
+  const terpakai = Math.min(masterJatah, Math.max(0, baseTerpakai - cancelledSeedDays + activeSubmittedDays));
   const sisa = Math.max(0, masterJatah - terpakai);
 
   return {

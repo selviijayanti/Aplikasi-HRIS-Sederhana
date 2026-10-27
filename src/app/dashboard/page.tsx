@@ -323,9 +323,12 @@ export default function DashboardPage() {
       submitted.forEach((l) => {
         if (!allMap.has(l.id)) allMap.set(l.id, l);
       });
-      DEFAULT_APPROVAL_QUEUE.forEach((q) => {
-        if (!allMap.has(q.id)) allMap.set(q.id, q);
-      });
+      // Gunakan default mock antrean hanya jika tidak ada data sama sekali (fallback luring)
+      if (allMap.size === 0) {
+        DEFAULT_APPROVAL_QUEUE.forEach((q) => {
+          if (!allMap.has(q.id)) allMap.set(q.id, q);
+        });
+      }
 
       const divNameLower = myDivisionInfo.nama.toLowerCase();
       const allItems = Array.from(allMap.values());
@@ -401,9 +404,12 @@ export default function DashboardPage() {
       submitted.forEach((l) => {
         if (!allMap.has(l.id)) allMap.set(l.id, l);
       });
-      DEFAULT_APPROVAL_QUEUE.forEach((q) => {
-        if (!allMap.has(q.id)) allMap.set(q.id, q);
-      });
+      // Gunakan default mock antrean hanya jika tidak ada data sama sekali (fallback luring)
+      if (allMap.size === 0) {
+        DEFAULT_APPROVAL_QUEUE.forEach((q) => {
+          if (!allMap.has(q.id)) allMap.set(q.id, q);
+        });
+      }
 
       const userUid = user.id;
       const userSeedId = (user as any)?.seed_id;

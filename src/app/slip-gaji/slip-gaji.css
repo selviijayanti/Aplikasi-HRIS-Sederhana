@@ -637,15 +637,54 @@
 }
 
 /* Printable Slip Gaji Official Modal */
+/* Printable Slip Gaji Official Modal - Premium Enterprise Redesign */
 .slip-printable-card {
+  position: relative;
   background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.06);
   width: 100%;
-  max-width: 620px;
-  border: 1px solid #cbd5e1;
-  padding: 2.25rem 2.5rem;
-  animation: modalFadeIn 0.2s ease-out forwards;
+  max-width: 660px;
+  border: 1px solid #e2e8f0;
+  padding: 2.25rem 2.5rem 2rem 2.5rem;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+.slip-card-top-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 50%, #38bdf8 100%);
+}
+
+.slip-modal-close-x {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.15rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 5;
+}
+
+.slip-modal-close-x:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+  border-color: #fca5a5;
+  transform: rotate(90deg);
 }
 
 .slip-official-header {
@@ -654,27 +693,67 @@
   align-items: flex-start;
   padding-bottom: 1.25rem;
   border-bottom: 2px solid #0f172a;
+  margin-top: 0.25rem;
+  gap: 1rem;
+}
+
+.slip-brand-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.slip-logo-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.06);
 }
 
 .slip-company-info {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
+}
+
+.slip-company-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .slip-company-title {
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.01em;
   margin: 0;
 }
 
+.slip-official-seal-tag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .slip-company-meta {
-  font-size: 0.71875rem;
+  font-size: 0.6875rem;
   color: #64748b;
   margin: 0;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .slip-official-badge-box {
@@ -682,7 +761,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .slip-official-tag {
@@ -695,9 +775,48 @@
 
 .slip-official-number {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: #2563eb;
+  color: #1e40af;
+  background-color: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.slip-status-pill-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.slip-status-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.slip-status-indicator-dot.terbit {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.slip-status-indicator-dot.draf {
+  background-color: #f59e0b;
+}
+
+.slip-status-text {
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.slip-status-text.terbit {
+  color: #059669;
+}
+
+.slip-status-text.draf {
+  color: #d97706;
 }
 
 .slip-info-columns {
@@ -705,24 +824,24 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 0.85rem 1.5rem;
   margin: 1.25rem 0;
-  padding: 0.85rem 1.15rem;
+  padding: 0.95rem 1.25rem;
   background-color: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
 }
 
 .slip-info-item {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .slip-info-label {
   font-size: 0.625rem;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
   color: #64748b;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .slip-info-val {
@@ -731,29 +850,59 @@
   color: #0f172a;
 }
 
+.slip-info-val.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .slip-breakdown-box {
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.15rem;
+  background-color: #ffffff;
+}
+
+.slip-breakdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 1.15rem;
+  background-color: #f1f5f9;
+  font-size: 0.65625rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .slip-breakdown-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.65rem 1rem;
+  padding: 0.7rem 1.15rem;
   font-size: 0.8125rem;
   border-bottom: 1px solid #f1f5f9;
 }
 
-.slip-breakdown-row:last-child {
-  border-bottom: none;
+.slip-breakdown-row:hover {
+  background-color: #fafbfc;
+}
+
+.slip-item-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .slip-breakdown-label {
-  color: #334155;
-  font-weight: 500;
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.slip-breakdown-sublabel {
+  font-size: 0.6875rem;
+  color: #94a3b8;
 }
 
 .slip-breakdown-val {
@@ -763,52 +912,179 @@
   white-space: nowrap;
 }
 
-.slip-breakdown-row.potongan .slip-breakdown-val {
+.slip-breakdown-val.val-tunjangan {
+  color: #059669;
+  font-weight: 700;
+  background-color: #f0fdf4;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #bbf7d0;
+}
+
+.slip-breakdown-val.val-potongan {
   color: #dc2626;
+  font-weight: 700;
+  background-color: #fef2f2;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
 }
 
 .slip-breakdown-total {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.85rem 1rem;
-  background-color: #f8fafc;
-  border-top: 2px solid #0f172a;
+  padding: 0.95rem 1.15rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border-top: 2px solid #2563eb;
+}
+
+.slip-total-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .slip-total-title {
   font-size: 0.8125rem;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 800;
+  color: #1e3a8a;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+}
+
+.slip-total-sub {
+  font-size: 0.6875rem;
+  color: #64748b;
 }
 
 .slip-total-figure {
-  font-size: 1.1875rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #2563eb;
+  color: #1e40af;
   font-variant-numeric: tabular-nums;
 }
 
 .slip-note-box {
   font-size: 0.75rem;
+  color: #334155;
+  background-color: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  margin-bottom: 1.15rem;
+  line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.slip-note-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.slip-sign-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 1.15rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.slip-sign-issuer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.slip-sign-lbl {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  font-weight: 700;
   color: #64748b;
-  background-color: #f8fafc;
-  border-left: 3px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0 4px 4px 0;
-  margin-bottom: 1rem;
-  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+
+.slip-sign-name {
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.15rem 0 0.1rem 0;
+  font-size: 0.8125rem;
+}
+
+.slip-sign-role {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.slip-sign-time {
+  font-size: 0.625rem;
+  color: #94a3b8;
+  margin-top: 0.1rem;
+}
+
+.slip-sign-seal-box {
+  text-align: right;
+}
+
+.slip-digital-seal-badge {
+  border: 1.5px dashed #059669;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  background-color: #f0fdf4;
+  text-align: center;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 170px;
+}
+
+.slip-seal-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.slip-seal-text-wrap {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.slip-seal-title {
+  font-size: 0.65625rem;
+  font-weight: 800;
+  color: #065f46;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.slip-seal-corp {
+  font-size: 0.5625rem;
+  color: #047857;
+  font-weight: 600;
+}
+
+.slip-seal-footer-bar {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: #059669;
+  letter-spacing: 0.08em;
+  border-top: 1px solid #bbf7d0;
+  padding-top: 0.2rem;
 }
 
 .slip-confidential-footer {
-  font-size: 0.6875rem;
+  font-size: 0.65625rem;
   color: #94a3b8;
   text-align: center;
-  margin: 1rem 0 1.25rem 0;
+  margin: 0.95rem 0 1.15rem 0;
   border-top: 1px dashed #e2e8f0;
   padding-top: 0.75rem;
+  line-height: 1.4;
 }
 
 .slip-modal-btn-row {
@@ -836,7 +1112,9 @@
     border: none;
     padding: 0;
   }
-  .slip-modal-btn-row {
+  .slip-modal-btn-row,
+  .slip-modal-close-x,
+  .slip-card-top-accent {
     display: none !important;
   }
 }

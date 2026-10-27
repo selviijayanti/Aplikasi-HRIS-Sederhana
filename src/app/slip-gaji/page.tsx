@@ -1275,23 +1275,52 @@ export default function SlipGajiPage() {
       {selectedSlipDetail && (
         <div className="payroll-modal-backdrop" onClick={() => setSelectedSlipDetail(null)}>
           <div className="slip-printable-card" onClick={(e) => e.stopPropagation()}>
+            {/* Tombol Silang (X) di Pojok Kanan Atas */}
+            <button
+              type="button"
+              className="slip-modal-close-x"
+              onClick={() => setSelectedSlipDetail(null)}
+              aria-label="Tutup slip gaji"
+              title="Tutup (Esc)"
+            >
+              ✕
+            </button>
+
+            {/* Aksen Ribbon Atas Dokumen Resmi */}
+            <div className="slip-card-top-accent" />
+
             <div className="slip-official-header">
-              <div className="slip-company-info">
-                <h2 className="slip-company-title">PT KARSA LINTAS NUSANTARA</h2>
-                <p className="slip-company-meta">
-                  Kawasan Industri & Pergudangan Terpadu, Blok B4 No. 12, Bekasi
-                  <br />
-                  NPWP: 01.345.678.9-407.000 · Telp: (021) 8899-2345
-                </p>
+              <div className="slip-brand-row">
+                <div className="slip-logo-badge">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                </div>
+                <div className="slip-company-info">
+                  <div className="slip-company-title-wrap">
+                    <h2 className="slip-company-title">PT KARSA LINTAS NUSANTARA</h2>
+                    <span className="slip-official-seal-tag">KarsaHR Enterprise</span>
+                  </div>
+                  <p className="slip-company-meta">
+                    Kawasan Industri &amp; Pergudangan Terpadu, Blok B4 No. 12, Bekasi
+                    <br />
+                    NPWP: 01.345.678.9-407.000 · Telp: (021) 8899-2345 · payroll@karsalintas.co.id
+                  </p>
+                </div>
               </div>
               <div className="slip-official-badge-box">
                 <span className="slip-official-tag">SLIP GAJI RESMI</span>
                 <span className="slip-official-number">
                   {selectedSlipDetail.nomor_slip || "DRAF-BELUM-TERBIT"}
                 </span>
-                <span style={{ fontSize: "0.6875rem", color: "#64748b" }}>
-                  Status: <strong>{selectedSlipDetail.status === "terbit" ? "Resmi Terbit" : "Draf"}</strong>
-                </span>
+                <div className="slip-status-pill-wrap">
+                  <span className={`slip-status-indicator-dot ${selectedSlipDetail.status === "terbit" ? "terbit" : "draf"}`} />
+                  <span className={`slip-status-text ${selectedSlipDetail.status === "terbit" ? "terbit" : "draf"}`}>
+                    {selectedSlipDetail.status === "terbit" ? "Resmi Terbit" : "Draf"}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1306,7 +1335,7 @@ export default function SlipGajiPage() {
               </div>
               <div className="slip-info-item">
                 <span className="slip-info-label">Nomor Induk Karyawan (NIK)</span>
-                <span className="slip-info-val">{selectedSlipDetail.nik}</span>
+                <span className="slip-info-val mono">{selectedSlipDetail.nik}</span>
               </div>
               <div className="slip-info-item">
                 <span className="slip-info-label">Divisi / Jabatan</span>
@@ -1318,54 +1347,95 @@ export default function SlipGajiPage() {
 
             {/* Breakdown Rincian Gaji */}
             <div className="slip-breakdown-box">
-              <div className="slip-breakdown-row">
-                <span className="slip-breakdown-label">Gaji Pokok</span>
-                <span className="slip-breakdown-val">{formatRupiah(selectedSlipDetail.gaji_pokok)}</span>
+              <div className="slip-breakdown-header">
+                <span>KOMPONEN RINCIAN GAJI</span>
+                <span>NOMINAL (IDR)</span>
               </div>
               <div className="slip-breakdown-row">
-                <span className="slip-breakdown-label">Tunjangan Jabatan & Operasional</span>
-                <span className="slip-breakdown-val" style={{ color: "#059669" }}>
+                <div className="slip-item-name">
+                  <span className="slip-breakdown-label">Gaji Pokok</span>
+                  <span className="slip-breakdown-sublabel">Gaji dasar bulanan standar karyawan</span>
+                </div>
+                <span className="slip-breakdown-val">{formatRupiah(selectedSlipDetail.gaji_pokok)}</span>
+              </div>
+              <div className="slip-breakdown-row tunjangan">
+                <div className="slip-item-name">
+                  <span className="slip-breakdown-label">Tunjangan Jabatan &amp; Operasional</span>
+                  <span className="slip-breakdown-sublabel">Tunjangan posisi, makan, dan transport</span>
+                </div>
+                <span className="slip-breakdown-val val-tunjangan">
                   {formatTunjangan(selectedSlipDetail.tunjangan)}
                 </span>
               </div>
               <div className="slip-breakdown-row potongan">
-                <span className="slip-breakdown-label">Potongan (BPJS Karyawan / Pajak)</span>
-                <span className="slip-breakdown-val" style={{ color: "#dc2626" }}>
+                <div className="slip-item-name">
+                  <span className="slip-breakdown-label">Potongan (BPJS Karyawan / Pajak)</span>
+                  <span className="slip-breakdown-sublabel">Iuran jaminan pensiun, kesehatan, &amp; PPh21</span>
+                </div>
+                <span className="slip-breakdown-val val-potongan">
                   {formatPotongan(selectedSlipDetail.potongan)}
                 </span>
               </div>
               <div className="slip-breakdown-total">
-                <span className="slip-total-title">Total Diterima (Take Home Pay)</span>
+                <div className="slip-total-meta">
+                  <span className="slip-total-title">Total Diterima (Take Home Pay)</span>
+                  <span className="slip-total-sub">Ditransfer ke rekening payroll karyawan terdaftar</span>
+                </div>
                 <span className="slip-total-figure">{formatRupiah(selectedSlipDetail.total_diterima)}</span>
               </div>
             </div>
 
             {selectedSlipDetail.catatan && (
               <div className="slip-note-box">
-                <strong>Catatan:</strong> {selectedSlipDetail.catatan}
+                <div className="slip-note-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </div>
+                <div>
+                  <strong>Catatan:</strong> {selectedSlipDetail.catatan}
+                </div>
               </div>
             )}
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: "1.5rem", padding: "0 0.5rem" }}>
-              <div style={{ fontSize: "0.6875rem", color: "#64748b" }}>
-                <span>Diterbitkan Oleh:</span>
-                <p style={{ fontWeight: 600, color: "#0f172a", margin: "0.2rem 0 0.15rem 0", fontSize: "0.8125rem" }}>
+            <div className="slip-sign-row">
+              <div className="slip-sign-issuer">
+                <span className="slip-sign-lbl">Diterbitkan Secara Sah Oleh:</span>
+                <p className="slip-sign-name">
                   {publisherName}
                 </p>
-                <span style={{ fontSize: "0.625rem", color: "#94a3b8" }}>
+                <span className="slip-sign-role">Bagian Payroll HRD &amp; Finance</span>
+                <span className="slip-sign-time">
                   {formatWaktuTerbit(selectedSlipDetail.diterbitkan_pada)}
                 </span>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ width: "90px", height: "40px", borderBottom: "1px solid #94a3b8", marginBottom: "0.25rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "0.625rem", color: "#1d4ed8", fontStyle: "italic", fontWeight: 700 }}>[TERVERIFIKASI]</span>
+              <div className="slip-sign-seal-box">
+                <div className="slip-digital-seal-badge">
+                  <div className="slip-seal-inner">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <polyline points="9 12 11 14 15 10" />
+                    </svg>
+                    <div className="slip-seal-text-wrap">
+                      <span className="slip-seal-title">TERVERIFIKASI OTENTIK</span>
+                      <span className="slip-seal-corp">KarsaHR Digital System</span>
+                    </div>
+                  </div>
+                  <div className="slip-seal-footer-bar">
+                    <span>DIGITALLY SIGNED &amp; SECURED</span>
+                  </div>
                 </div>
-                <span style={{ fontSize: "0.6875rem", fontWeight: 600, color: "#334155" }}>Bagian Payroll HRD</span>
               </div>
             </div>
 
             <p className="slip-confidential-footer">
-              Dokumen ini dihasilkan secara otomatis oleh sistem KarsaHR dan bersifat rahasia (Privileged & Confidential).
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "4px" }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Dokumen ini dihasilkan secara otomatis oleh sistem KarsaHR dan bersifat rahasia (Privileged &amp; Confidential).
               <br />
               Slip gaji yang telah resmi terbit terkunci dan tidak dapat diubah kembali.
             </p>

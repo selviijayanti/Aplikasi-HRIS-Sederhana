@@ -607,7 +607,7 @@ export default function PersetujuanPage() {
           setStatusMap((prev) => {
             const next = { ...prev };
             fsCombined.forEach((item) => {
-              const fsStatus = (firestoreLeaves.find((s) => s.id === item.id)?.status || "diajukan") as any;
+              const fsStatus = (firestoreLeaves.find((s) => s.id === item.id)?.status || item.status || "diajukan") as any;
               next[item.id] = overrides[item.id]?.status || fsStatus;
             });
             return next;
@@ -679,7 +679,7 @@ export default function PersetujuanPage() {
     return filteredQueue[0] || allQueue[0] || DEFAULT_QUEUE[0];
   }, [selectedId, allQueue, filteredQueue]);
 
-  const currentStatus = statusMap[activeItem.id] || "diajukan";
+  const currentStatus = statusMap[activeItem.id] || overridesRecord[activeItem.id]?.status || activeItem.status || "diajukan";
   const overrideInfo = overridesRecord[activeItem.id];
 
   // Hak akses tindakan
@@ -1700,7 +1700,9 @@ export default function PersetujuanPage() {
                         : currentStatus === "disetujui_atasan"
                         ? "Tahap 1 Selesai"
                         : currentStatus === "ditolak"
-                        ? "Ditolak"
+                        ? (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || activeItem.tahap_persetujuan === "hrd" ? "Ditolak HRD" : "Ditolak Atasan")
+                        : currentStatus === "dibatalkan"
+                        ? (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || (activeItem as any)?.dibatalkan_oleh_hrd ? "Dibatalkan HRD" : "Dibatalkan")
                         : activeItem.perlu_atasan === false
                         ? "Tahap HRD (Bypass)"
                         : "Tahap 1"}
@@ -1724,68 +1726,111 @@ export default function PersetujuanPage() {
                     </div>
 
                     {/* Step 2: Atasan Divisi */}
-                    <div
-                      className={`stepper-node ${
-                        activeItem.perlu_atasan === false
-                          ? "done"
-                          : currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
-                          ? "done"
-                          : currentStatus === "ditolak"
-                          ? "failed"
-                          : "current"
-                      }`}
-                    >
-                      <div className="stepper-circle">
-                        {activeItem.perlu_atasan === false || currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
-                          ? "✓"
-                          : currentStatus === "ditolak"
-                          ? "✕"
-                          : "2"}
-                      </div>
-                      <div className="stepper-text-col">
-                        <h4 className="stepper-main-text">
-                          {activeItem.perlu_atasan === false
-                            ? "Tahap 1 Dilewati (Pemohon Atasan / HRD)"
-                            : currentStatus === "diajukan"
-                            ? `Menunggu Verifikasi: ${activeItem.atasan_nama}`
-                            : currentStatus === "ditolak"
-                            ? `Ditolak oleh Atasan (${activeItem.atasan_nama})`
-                            : `Disetujui oleh Atasan (${activeItem.atasan_nama})`}
-                        </h4>
-                        <p className="stepper-sub-text">
-                          {activeItem.perlu_atasan === false
-                            ? "Pengajuan langsung diproses oleh HRD tanpa persetujuan atasan divisi."
-                            : `Tahap 1 • Verifikasi Atasan Divisi (${activeItem.atasan_jabatan})`}
-                        </p>
-                      </div>
-                    </div>
+                    {(() => {
+                      const isBypass = activeItem.perlu_atasan === false;
+                      const isBatalHrd = currentStatus === "dibatalkan" && (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || (activeItem as any)?.dibatalkan_oleh_hrd);
+                      const isTolakHrd = currentStatus === "ditolak" && (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || activeItem.tahap_persetujuan === "hrd");
+                      
+                      let nodeClass = "stepper-node";
+                      let circleContent = "2";
+                      let mainText = "";
+                      let subText = "";
+
+                      if (isBypass) {
+                        nodeClass += " done";
+                        circleContent = "✓";
+                        mainText = "Tahap 1 Dilewati (Pemohon Atasan / HRD)";
+                        subText = "Pengajuan langsung diproses oleh HRD tanpa persetujuan atasan divisi.";
+                      } else if (currentStatus === "disetujui" || currentStatus === "disetujui_atasan" || isBatalHrd || isTolakHrd) {
+                        nodeClass += " done";
+                        circleContent = "✓";
+                        mainText = `Disetujui oleh Atasan (${activeItem.atasan_nama})`;
+                        subText = `Tahap 1 Selesai • Diverifikasi oleh Atasan Divisi (${activeItem.atasan_jabatan})`;
+                      } else if (currentStatus === "ditolak") {
+                        nodeClass += " failed";
+                        circleContent = "✕";
+                        mainText = `Ditolak oleh Atasan (${activeItem.atasan_nama})`;
+                        subText = overrideInfo?.alasanPenolakan ? `Alasan: "${overrideInfo.alasanPenolakan}"` : `Pengajuan ditolak pada verifikasi atasan.`;
+                      } else if (currentStatus === "dibatalkan") {
+                        nodeClass += " failed";
+                        circleContent = "✕";
+                        mainText = `Dibatalkan oleh Pemohon`;
+                        subText = `Pengajuan ditarik kembali oleh pemohon sebelum diproses atasan.`;
+                      } else {
+                        // diajukan
+                        nodeClass += " current";
+                        circleContent = "2";
+                        mainText = `Menunggu Verifikasi: ${activeItem.atasan_nama}`;
+                        subText = `Tahap 1 • Menunggu tindakan Manajer Divisi (${activeItem.atasan_jabatan})`;
+                      }
+
+                      return (
+                        <div className={nodeClass}>
+                          <div className="stepper-circle">{circleContent}</div>
+                          <div className="stepper-text-col">
+                            <h4 className="stepper-main-text">{mainText}</h4>
+                            <p className="stepper-sub-text">{subText}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Step 3: HRD */}
-                    <div
-                      className={`stepper-node ${
-                        currentStatus === "disetujui"
-                          ? "done"
-                          : currentStatus === "disetujui_atasan" || (currentStatus === "diajukan" && activeItem.perlu_atasan === false)
-                          ? "current"
-                          : ""
-                      }`}
-                    >
-                      <div className="stepper-circle">
-                        {currentStatus === "disetujui" ? "✓" : "3"}
-                      </div>
-                      <div className="stepper-text-col">
-                        <h4 className="stepper-main-text">
-                          {currentStatus === "disetujui"
-                            ? "Disetujui Final oleh HRD (Rina Kusumawardani)"
-                            : activeItem.perlu_atasan === false && currentStatus === "diajukan"
-                            ? "Menunggu Keputusan Akhir HRD (Tahap 1 Dilewati)"
-                            : "Persetujuan Tahap Akhir Kepala HRD"}
-                        </h4>
-                        <p className="stepper-sub-text">
-                          Tahap 2 • Otorisasi Final & Penyesuaian Saldo Cuti
-                        </p>
-                      </div>
-                    </div>
+                    {(() => {
+                      const isBypass = activeItem.perlu_atasan === false;
+                      const isBatalHrd = currentStatus === "dibatalkan" && (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || (activeItem as any)?.dibatalkan_oleh_hrd);
+                      const isTolakHrd = currentStatus === "ditolak" && (overrideInfo?.approvedBy?.toLowerCase().includes("hrd") || activeItem.tahap_persetujuan === "hrd");
+                      const approverName = overrideInfo?.approvedBy || "Rina Kusumawardani (Kepala HRD)";
+
+                      let nodeClass = "stepper-node";
+                      let circleContent = "3";
+                      let mainText = "";
+                      let subText = "";
+
+                      if (currentStatus === "disetujui") {
+                        nodeClass += " done";
+                        circleContent = "✓";
+                        mainText = `Disetujui Final oleh HRD (${approverName})`;
+                        subText = `Tahap 2 Selesai • Hak cuti disesuaikan dan dicatat di sistem.`;
+                      } else if (isBatalHrd) {
+                        nodeClass += " failed";
+                        circleContent = "✕";
+                        mainText = `Dibatalkan oleh HRD (${approverName})`;
+                        subText = overrideInfo?.alasanPenolakan ? `Alasan: "${overrideInfo.alasanPenolakan}". Kuota cuti dikembalikan.` : `Pengajuan dibatalkan oleh HRD. Kuota cuti dikembalikan.`;
+                      } else if (isTolakHrd) {
+                        nodeClass += " failed";
+                        circleContent = "✕";
+                        mainText = `Ditolak oleh HRD (${approverName})`;
+                        subText = overrideInfo?.alasanPenolakan ? `Alasan: "${overrideInfo.alasanPenolakan}". Kuota cuti dikembalikan.` : `Pengajuan ditolak pada otorisasi final HRD.`;
+                      } else if (currentStatus === "disetujui_atasan" || (currentStatus === "diajukan" && isBypass)) {
+                        nodeClass += " current";
+                        circleContent = "3";
+                        mainText = isBypass ? "Menunggu Keputusan Akhir HRD (Tahap 1 Dilewati)" : "Menunggu Persetujuan Tahap Akhir Kepala HRD";
+                        subText = "Tahap 2 • Memerlukan tindakan persetujuan final Kepala HRD";
+                      } else if (currentStatus === "ditolak" || currentStatus === "dibatalkan") {
+                        // Ditolak / Dibatalkan di tahap 1
+                        nodeClass += "";
+                        circleContent = "3";
+                        mainText = "Tahap 2 Tidak Dilanjutkan";
+                        subText = "Permohonan telah dihentikan pada tahap sebelumnya.";
+                      } else {
+                        // diajukan (belum ke HRD)
+                        nodeClass += "";
+                        circleContent = "3";
+                        mainText = "Persetujuan Tahap Akhir Kepala HRD";
+                        subText = "Tahap 2 • Otorisasi Final & Penyesuaian Saldo Cuti";
+                      }
+
+                      return (
+                        <div className={nodeClass}>
+                          <div className="stepper-circle">{circleContent}</div>
+                          <div className="stepper-text-col">
+                            <h4 className="stepper-main-text">{mainText}</h4>
+                            <p className="stepper-sub-text">{subText}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatRupiah, calculateWorkingDays, determineAttendanceStatus, formatWIBDateString } from "@/lib/utils/time";
+import {
+  formatRupiah,
+  calculateWorkingDays,
+  determineAttendanceStatus,
+  formatWIBDateString,
+  isCheckInWindowValid,
+  getWIBDate,
+} from "@/lib/utils/time";
 import hariLiburData from "../../../data/seeds/hari_libur.json";
 import kuotaCutiData from "../../../data/seeds/kuota_cuti.json";
 import pengajuanCutiData from "../../../data/seeds/pengajuan_cuti.json";
@@ -463,6 +470,20 @@ export default function DashboardPage() {
   const [isOnApprovedLeaveToday, setIsOnApprovedLeaveToday] = useState(false);
   const [approvedLeaveType, setApprovedLeaveType] = useState("Cuti / Izin");
 
+  // Jendela waktu check-in 06.00 – 12.00 WIB (PRD BR-02)
+  const [isCheckInWindowActive, setIsCheckInWindowActive] = useState<boolean>(() => {
+    return isCheckInWindowValid(new Date()).valid;
+  });
+
+  useEffect(() => {
+    const checkWindow = () => {
+      setIsCheckInWindowActive(isCheckInWindowValid(new Date()).valid);
+    };
+    checkWindow();
+    const timer = setInterval(checkWindow, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Sinkronisasi Data Pribadi berdasarkan User yang Sedang Login
   useEffect(() => {
     if (!user) return;
@@ -835,11 +856,24 @@ export default function DashboardPage() {
     }
 
     const now = new Date();
-    const hh = String(now.getHours()).padStart(2, "0");
-    const mm = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
+    const wib = getWIBDate(now);
+    const hh = String(wib.getHours()).padStart(2, "0");
+    const mm = String(wib.getMinutes()).padStart(2, "0");
+    const ss = String(wib.getSeconds()).padStart(2, "0");
     const jamNow = `${hh}.${mm}`;
     const fullTimeStr = `${hh}:${mm}:${ss}`;
+
+    // BR-02: Check-in hanya bisa dilakukan antara pukul 06.00 dan 12.00 WIB
+    const windowValidation = isCheckInWindowValid(fullTimeStr);
+    if (!windowValidation.valid) {
+      setToastMessage(
+        windowValidation.message ||
+          "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas check-in adalah 06.00–12.00 WIB."
+      );
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
+
     // BR-03: Tepat 08.15.00 berstatus hadir, 08.15.01 berstatus terlambat
     const statusKehadiran = determineAttendanceStatus(fullTimeStr);
     const todayDateStr = formatWIBDateString(now);
@@ -1757,16 +1791,35 @@ export default function DashboardPage() {
                   ? `Pengajuan ${approvedLeaveType} Anda aktif hari ini (PRD BR-02). Presensi harian tidak diperlukan.`
                   : hasCheckedOut
                   ? `Sudah check-out pada pukul ${checkOutTime} WIB.`
+                  : !isCheckInWindowActive && !hasCheckedIn
+                  ? "Batas waktu check-in telah berakhir (06.00 – 12.00 WIB) · Jam kerja standar 08.00 – 17.00 WIB"
                   : "Check-in mulai 06.00 – 12.00 WIB · Jam kerja standar 08.00 – 17.00 WIB"}
               </p>
               <div className="metric-btn-row">
-                <button
-                  onClick={handleCheckIn}
-                  disabled={hasCheckedIn || isOnApprovedLeaveToday}
-                  className={`ui-btn ${hasCheckedIn || isOnApprovedLeaveToday ? "ui-btn-disabled" : "ui-btn-primary"}`}
+                <div
+                  onClick={() => {
+                    if (!isCheckInWindowActive && !hasCheckedIn && !isOnApprovedLeaveToday) {
+                      setToastMessage(
+                        "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas check-in adalah 06.00–12.00 WIB."
+                      );
+                      setTimeout(() => setToastMessage(null), 4000);
+                    }
+                  }}
+                  style={{ display: "inline-block" }}
                 >
-                  {isOnApprovedLeaveToday ? `Sedang ${approvedLeaveType}` : "Check-in"}
-                </button>
+                  <button
+                    onClick={handleCheckIn}
+                    disabled={hasCheckedIn || isOnApprovedLeaveToday || !isCheckInWindowActive}
+                    className={`ui-btn ${hasCheckedIn || isOnApprovedLeaveToday || !isCheckInWindowActive ? "ui-btn-disabled" : "ui-btn-primary"}`}
+                    title={!isCheckInWindowActive && !hasCheckedIn ? "Check-in ditutup: Batas waktu check-in adalah 06.00 – 12.00 WIB (PRD BR-02)" : undefined}
+                  >
+                    {isOnApprovedLeaveToday
+                      ? `Sedang ${approvedLeaveType}`
+                      : !isCheckInWindowActive && !hasCheckedIn
+                      ? "Check-in (Ditutup)"
+                      : "Check-in"}
+                  </button>
+                </div>
                 <button
                   onClick={handleCheckOut}
                   disabled={!hasCheckedIn || hasCheckedOut || isOnApprovedLeaveToday}

@@ -46,21 +46,41 @@ export function determineAttendanceStatus(timeStr: string): "hadir" | "terlambat
  * Validasi jam check-in:
  * BR-02: Check-in hanya bisa dilakukan antara pukul 06.00 dan 12.00 WIB.
  */
-export function isCheckInWindowValid(timeStr: string): { valid: boolean; message?: string } {
-  const parts = timeStr.split(":").map(Number);
-  const hour = parts[0] || 0;
-  const minute = parts[1] || 0;
-  const second = parts[2] || 0;
+export function isCheckInWindowValid(timeOrDate: string | Date = new Date()): {
+  valid: boolean;
+  message?: string;
+  reason?: "too_early" | "too_late";
+} {
+  let timeStr = "";
+  if (timeOrDate instanceof Date) {
+    timeStr = formatWIBTimeString(timeOrDate);
+  } else {
+    timeStr = timeOrDate;
+  }
+
+  const normalized = timeStr.replace(/\./g, ":");
+  const parts = normalized.split(":").map(Number);
+  const hour = isNaN(parts[0]) ? 0 : parts[0];
+  const minute = isNaN(parts[1]) ? 0 : parts[1];
+  const second = isNaN(parts[2]) ? 0 : parts[2];
   const totalSeconds = hour * 3600 + minute * 60 + second;
 
   const startSeconds = 6 * 3600; // 06:00:00
   const endSeconds = 12 * 3600; // 12:00:00
 
   if (totalSeconds < startSeconds) {
-    return { valid: false, message: "Check-in hanya dapat dilakukan mulai pukul 06.00 WIB." };
+    return {
+      valid: false,
+      reason: "too_early",
+      message: "Check-in ditolak: Check-in hanya dapat dilakukan mulai pukul 06.00 WIB (PRD BR-02). Batas waktu check-in adalah 06.00–12.00 WIB.",
+    };
   }
   if (totalSeconds > endSeconds) {
-    return { valid: false, message: "Batas waktu check-in telah berakhir (maksimal pukul 12.00 WIB)." };
+    return {
+      valid: false,
+      reason: "too_late",
+      message: "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas waktu check-in adalah 06.00–12.00 WIB.",
+    };
   }
   return { valid: true };
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAttendanceRecords, executeAttendanceCorrection } from "@/lib/firebase/attendance-service";
 import profilesData from "../../../../data/seeds/profiles.json";
+import { isCheckInWindowValid, formatWIBTimeString } from "@/lib/utils/time";
 
 /**
  * Backend API Route Handler untuk Memvalidasi RBAC Absensi
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, recordId, payload } = body;
+    const { userId, recordId, payload, action } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized: Missing userId" }, { status: 401 });
@@ -57,6 +58,20 @@ export async function POST(request: NextRequest) {
 
     if (!userProfile) {
       return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+    }
+
+    // Aksi Check-in via API (PRD BR-02: Batas waktu 06.00 - 12.00 WIB)
+    if (action === "check-in" || action === "check_in") {
+      const now = new Date();
+      const timeStr = body.jam_masuk || formatWIBTimeString(now);
+      const windowValidation = isCheckInWindowValid(timeStr);
+      if (!windowValidation.valid) {
+        return NextResponse.json(
+          { error: windowValidation.message || "Check-in ditolak: Batas waktu check-in adalah 06.00–12.00 WIB (PRD BR-02)." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ success: true, message: "Check-in valid." });
     }
 
     // Validasi RBAC ketat: Hanya HRD yang dapat mengoreksi

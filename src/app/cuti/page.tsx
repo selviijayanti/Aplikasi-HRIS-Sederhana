@@ -472,7 +472,16 @@ export default function CutiPage() {
 
       // Irisan rentang tanggal: tanggalMulai <= pSelesai && tanggalSelesai >= pMulai
       if (tanggalMulai <= pSelesai && tanggalSelesai >= pMulai) {
-        return "Tanggal yang dipilih beririsan dengan pengajuan aktif lainnya.";
+        const itemType =
+          item.jenis === "cuti_tahunan"
+            ? "Cuti Tahunan"
+            : item.jenis === "izin"
+            ? "Izin"
+            : item.jenis === "sakit"
+            ? "Sakit"
+            : item.jenis;
+        const itemRentang = formatRentangTanggal(item.tanggal_mulai, item.tanggal_selesai);
+        return `Tanggal bertabrakan dengan pengajuan ${itemType} (${itemRentang}) yang masih aktif.`;
       }
     }
 
@@ -1082,16 +1091,44 @@ export default function CutiPage() {
               </span>
             </div>
 
-            {/* Validasi Batas Waktu H-3 / H-1 Sesuai PRD BR-05 */}
-            {deadlineError && (
-              <div className="alert-error" style={{ marginBottom: "0.5rem" }}>
-                {deadlineError}
+            {/* Inline Validation Tanggal (Kontekstual di bawah pemilihan tanggal) */}
+            {overlapError && (
+              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>⚠️</span>
+                <span>{overlapError}</span>
               </div>
             )}
 
-            {/* Validasi Kuota Melebihi Sesuai PRD BR-06 */}
+            {tenureError && (
+              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>⚠️</span>
+                <span>{tenureError}</span>
+              </div>
+            )}
+
+            {crossYearError && (
+              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>⚠️</span>
+                <span>{crossYearError}</span>
+              </div>
+            )}
+
+            {isIzinExceeded && (
+              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>⚠️</span>
+                <span>Durasi izin {hitungHariKerja} hari kerja melebihi batas maksimal 2 hari kerja per pengajuan.</span>
+              </div>
+            )}
+
+            {deadlineError && (
+              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", flexShrink: 0, marginTop: "1px" }}>⚠️</span>
+                <span>{deadlineError}</span>
+              </div>
+            )}
+
             {isExceedingQuota && (
-              <div className="quota-exceeded-warning">
+              <div className="quota-exceeded-warning" style={{ marginTop: "0.5rem" }}>
                 Jumlah hari melebihi sisa kuota cuti tahunan Anda (sisa {quotaSummary.sisa} hari).
               </div>
             )}
@@ -1193,46 +1230,23 @@ export default function CutiPage() {
                     </button>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Peringatan Tanggal Beririsan / Bentrok (Aturan PRD BR-07) */}
-            {overlapError && (
-              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.95rem" }}>⚠️</span>
-                <span>{overlapError}</span>
-              </div>
-            )}
-
-            {/* Peringatan Masa Kerja Cuti Tahunan < 12 Bulan (Aturan PRD BR-04) */}
-            {tenureError && (
-              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.95rem" }}>⚠️</span>
-                <span>{tenureError}</span>
-              </div>
-            )}
-
-            {/* Peringatan Melewati Pergantian Tahun (Aturan PRD BR-05) */}
-            {crossYearError && (
-              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.95rem" }}>⚠️</span>
-                <span>{crossYearError}</span>
-              </div>
-            )}
-
-            {/* Peringatan Batasan Izin Maks 2 Hari (Aturan PRD BR-08) */}
-            {isIzinExceeded && (
-              <div className="alert-error" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.95rem" }}>⚠️</span>
-                <span>Durasi izin {hitungHariKerja} hari kerja melebihi batas maksimal 2 hari kerja per pengajuan.</span>
-              </div>
-            )}
-
-            {/* Peringatan Surat Dokter Wajib (Aturan PRD BR-08) */}
-            {isDoctorNoteMissing && (
-              <div className="alert-warning-box" style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.95rem" }}>⚠️</span>
-                <span>Lampiran surat dokter wajib diunggah karena durasi sakit lebih dari 1 hari kerja ({hitungHariKerja} hari kerja).</span>
+                {/* Inline Helper / Warning Surat Dokter Wajib jika > 1 hari dan belum diunggah */}
+                {isDoctorNoteMissing && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      marginTop: "0.6rem",
+                      fontSize: "0.78rem",
+                      color: "#b45309",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <span style={{ fontSize: "0.85rem" }}>⚠️</span>
+                    <span>Wajib melampirkan surat dokter untuk durasi sakit lebih dari 1 hari kerja ({hitungHariKerja} hari kerja).</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1248,22 +1262,6 @@ export default function CutiPage() {
             >
               Kirim Pengajuan
             </button>
-            {isSubmitDisabled && submitDisabledReason && (
-              <p
-                style={{
-                  fontSize: "0.82rem",
-                  color: "#64748b",
-                  marginTop: "0.5rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  lineHeight: 1.4,
-                }}
-              >
-                <span>ℹ️</span>
-                <span>{submitDisabledReason}</span>
-              </p>
-            )}
           </form>
         </div>
 

@@ -267,28 +267,28 @@ export default function SlipGajiPage() {
       if (user.peran === "atasan") {
         if (urlKaryawanId && urlKaryawanId !== myId && urlKaryawanId !== mySeedId && urlKaryawanId !== myNik) {
           setSelectedSlipDetail(null);
-          setToastMessage("Akses ditolak: Gaji bersifat rahasia. Atasan tidak dapat melihat gaji anggota divisinya (PRD BR-11).");
+          setToastMessage("Akses ditolak: Gaji bersifat rahasia. Atasan tidak dapat melihat gaji anggota divisinya.");
           return;
         }
         if (urlSlipId) {
           const s = allSlips.find((item) => item.id === urlSlipId);
           if (s && s.karyawan_id !== myId && s.karyawan_id !== mySeedId && s.karyawan_id !== myNik) {
             setSelectedSlipDetail(null);
-            setToastMessage("Akses ditolak: Gaji bersifat rahasia. Atasan tidak dapat melihat gaji anggota divisinya (PRD BR-11).");
+            setToastMessage("Akses ditolak: Gaji bersifat rahasia. Atasan tidak dapat melihat gaji anggota divisinya.");
             return;
           }
         }
       } else if (user.peran === "karyawan") {
         if (urlKaryawanId && urlKaryawanId !== myId && urlKaryawanId !== mySeedId && urlKaryawanId !== myNik) {
           setSelectedSlipDetail(null);
-          setToastMessage("Akses ditolak: Karyawan hanya dapat melihat slip gaji miliknya sendiri yang sudah terbit (PRD BR-11).");
+          setToastMessage("Akses ditolak: Karyawan hanya dapat melihat slip gaji miliknya sendiri yang sudah terbit.");
           return;
         }
         if (urlSlipId) {
           const s = allSlips.find((item) => item.id === urlSlipId);
           if (s && ((s.karyawan_id !== myId && s.karyawan_id !== mySeedId && s.karyawan_id !== myNik) || s.status !== "terbit")) {
             setSelectedSlipDetail(null);
-            setToastMessage("Akses ditolak: Karyawan hanya dapat melihat slip gaji miliknya sendiri yang sudah terbit (PRD BR-11).");
+            setToastMessage("Akses ditolak: Karyawan hanya dapat melihat slip gaji miliknya sendiri yang sudah terbit.");
             return;
           }
         }

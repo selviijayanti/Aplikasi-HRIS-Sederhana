@@ -126,21 +126,21 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
   if (payload.jenis === "cuti_tahunan" && diffCalendarDays < 3) {
     return {
       success: false,
-      error: "Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3) sesuai PRD BR-05.",
+      error: "Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3).",
     };
   }
 
   if (payload.jenis === "izin" && diffCalendarDays < 1) {
     return {
       success: false,
-      error: "Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1) sesuai PRD BR-05.",
+      error: "Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1).",
     };
   }
 
   if (payload.jenis === "sakit" && diffCalendarDays < -3) {
     return {
       success: false,
-      error: "Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit (PRD BR-05).",
+      error: "Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit.",
     };
   }
 

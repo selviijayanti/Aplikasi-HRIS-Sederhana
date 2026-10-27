@@ -97,7 +97,7 @@ export default function EmailOutboxModal({ isOpen, onClose }: EmailOutboxModalPr
                 <span className="outbox-badge-count">{emails.length} pesan</span>
               </div>
               <p className="outbox-sub">
-                Fitur Nilai Tambah PRD Bab 11 &amp; BR-11 (Atasan, HRD, Pemohon, dan Terbit Slip Gaji).
+                Notifikasi email otomatis untuk Atasan, HRD, Pemohon, dan Penerbitan Slip Gaji.
               </p>
             </div>
           </div>

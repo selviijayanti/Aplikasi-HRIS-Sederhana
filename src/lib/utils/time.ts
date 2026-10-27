@@ -72,14 +72,14 @@ export function isCheckInWindowValid(timeOrDate: string | Date = new Date()): {
     return {
       valid: false,
       reason: "too_early",
-      message: "Check-in ditolak: Check-in hanya dapat dilakukan mulai pukul 06.00 WIB (PRD BR-02). Batas waktu check-in adalah 06.00–12.00 WIB.",
+      message: "Check-in ditolak: Check-in hanya dapat dilakukan mulai pukul 06.00 WIB. Batas waktu check-in adalah 06.00–12.00 WIB.",
     };
   }
   if (totalSeconds > endSeconds) {
     return {
       valid: false,
       reason: "too_late",
-      message: "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas waktu check-in adalah 06.00–12.00 WIB.",
+      message: "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB. Batas waktu check-in adalah 06.00–12.00 WIB.",
     };
   }
   return { valid: true };

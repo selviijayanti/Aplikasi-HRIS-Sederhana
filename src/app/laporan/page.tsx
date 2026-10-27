@@ -1652,7 +1652,7 @@ export default function LaporanPage() {
                   <line x1="12" y1="8" x2="12.01" y2="8" />
                 </svg>
                 <div>
-                  <strong style={{ color: "#334155" }}>Kebijakan PRD BR-11:</strong> Rekap gaji hanya menghitung slip yang berstatus <strong>Terbit</strong>. Sebanyak {dynamicSalaryData.draftCount} slip pada periode {activePeriod.namaBulan} masih berstatus draf sehingga tidak dihitung ke dalam rekapitulasi penggajian per divisi.
+                  <strong style={{ color: "#334155" }}>Kebijakan Penggajian:</strong> Rekap gaji hanya menghitung slip yang berstatus <strong>Terbit</strong>. Sebanyak {dynamicSalaryData.draftCount} slip pada periode {activePeriod.namaBulan} masih berstatus draf sehingga tidak dihitung ke dalam rekapitulasi penggajian per divisi.
                 </div>
               </div>
             )}

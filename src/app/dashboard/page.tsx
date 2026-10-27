@@ -879,7 +879,7 @@ export default function DashboardPage() {
   const handleCheckIn = () => {
     // BR-02: Check-in kedua di hari yang sama ditolak
     if (hasCheckedIn) {
-      setToastMessage("Check-in kedua di hari yang sama ditolak (PRD BR-02).");
+      setToastMessage("Check-in kedua di hari yang sama ditolak. Anda sudah melakukan presensi hari ini.");
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
@@ -897,7 +897,7 @@ export default function DashboardPage() {
     if (!windowValidation.valid) {
       setToastMessage(
         windowValidation.message ||
-          "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas check-in adalah 06.00–12.00 WIB."
+          "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB. Jam presensi masuk adalah 06.00–12.00 WIB."
       );
       setTimeout(() => setToastMessage(null), 4000);
       return;
@@ -914,7 +914,7 @@ export default function DashboardPage() {
 
     // BR-02: Check-in ditolak pada hari karyawan sedang cuti, sakit, atau izin yang sudah disetujui
     if (isOnApprovedLeaveToday) {
-      setToastMessage(`Check-in ditolak: Anda sedang ${approvedLeaveType} yang sudah disetujui untuk hari ini (PRD BR-02).`);
+      setToastMessage(`Check-in ditolak: Anda sedang ${approvedLeaveType} yang sudah disetujui untuk hari ini.`);
       setTimeout(() => setToastMessage(null), 4000);
       return;
     }
@@ -944,7 +944,7 @@ export default function DashboardPage() {
 
       if (hasApprovedLeaveToday) {
         setIsOnApprovedLeaveToday(true);
-        setToastMessage("Check-in ditolak: Anda memiliki pengajuan cuti/izin/sakit yang sudah disetujui untuk hari ini (PRD BR-02).");
+        setToastMessage("Check-in ditolak: Anda memiliki pengajuan cuti/izin/sakit yang sudah disetujui untuk hari ini.");
         setTimeout(() => setToastMessage(null), 4000);
         return;
       }
@@ -965,7 +965,7 @@ export default function DashboardPage() {
       });
 
       if (existingIdx >= 0 && rawStore[existingIdx].jam_masuk) {
-        setToastMessage("Check-in kedua di hari yang sama ditolak (PRD BR-02).");
+        setToastMessage("Check-in kedua di hari yang sama ditolak. Anda sudah melakukan presensi hari ini.");
         setTimeout(() => setToastMessage(null), 3000);
         return;
       }
@@ -1057,7 +1057,7 @@ export default function DashboardPage() {
   const handleCheckOut = () => {
     // BR-02: Check-out hanya bisa dilakukan setelah check-in pada hari yang sama
     if (!hasCheckedIn) {
-      setToastMessage("Check-out ditolak: Anda belum melakukan check-in hari ini (PRD BR-02).");
+      setToastMessage("Check-out ditolak: Anda belum melakukan check-in hari ini.");
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
@@ -1174,17 +1174,17 @@ export default function DashboardPage() {
     const diffCalendarDays = Math.round((startMs - todayMs) / (1000 * 60 * 60 * 24));
 
     if (formJenis === "cuti_tahunan" && diffCalendarDays < 3) {
-      setFormError("Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3) sesuai PRD BR-05.");
+      setFormError("Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3).");
       return;
     }
 
     if (formJenis === "izin" && diffCalendarDays < 1) {
-      setFormError("Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1) sesuai PRD BR-05.");
+      setFormError("Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1).");
       return;
     }
 
     if (formJenis === "sakit" && diffCalendarDays < -3) {
-      setFormError("Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit (PRD BR-05).");
+      setFormError("Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit.");
       return;
     }
 
@@ -1817,7 +1817,7 @@ export default function DashboardPage() {
               </div>
               <p className="metric-footnote">
                 {isOnApprovedLeaveToday
-                  ? `Pengajuan ${approvedLeaveType} Anda aktif hari ini (PRD BR-02). Presensi harian tidak diperlukan.`
+                  ? `Pengajuan ${approvedLeaveType} Anda aktif hari ini. Presensi harian tidak diperlukan.`
                   : hasCheckedOut
                   ? `Sudah check-out pada pukul ${checkOutTime} WIB.`
                   : !isCheckInWindowActive && !hasCheckedIn
@@ -1829,7 +1829,7 @@ export default function DashboardPage() {
                   onClick={() => {
                     if (!isCheckInWindowActive && !hasCheckedIn && !isOnApprovedLeaveToday) {
                       setToastMessage(
-                        "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB (PRD BR-02). Batas check-in adalah 06.00–12.00 WIB."
+                        "Check-in ditolak: Batas waktu check-in telah berakhir pada pukul 12.00 WIB. Jam presensi masuk adalah 06.00–12.00 WIB."
                       );
                       setTimeout(() => setToastMessage(null), 4000);
                     }
@@ -1840,7 +1840,7 @@ export default function DashboardPage() {
                     onClick={handleCheckIn}
                     disabled={hasCheckedIn || isOnApprovedLeaveToday || !isCheckInWindowActive}
                     className={`ui-btn ${hasCheckedIn || isOnApprovedLeaveToday || !isCheckInWindowActive ? "ui-btn-disabled" : "ui-btn-primary"}`}
-                    title={!isCheckInWindowActive && !hasCheckedIn ? "Check-in ditutup: Batas waktu check-in adalah 06.00 – 12.00 WIB (PRD BR-02)" : undefined}
+                    title={!isCheckInWindowActive && !hasCheckedIn ? "Check-in ditutup: Batas waktu check-in adalah 06.00 – 12.00 WIB" : undefined}
                   >
                     {isOnApprovedLeaveToday
                       ? `Sedang ${approvedLeaveType}`

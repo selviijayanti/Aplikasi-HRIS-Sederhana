@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       const windowValidation = isCheckInWindowValid(timeStr);
       if (!windowValidation.valid) {
         return NextResponse.json(
-          { error: windowValidation.message || "Check-in ditolak: Batas waktu check-in adalah 06.00–12.00 WIB (PRD BR-02)." },
+          { error: windowValidation.message || "Check-in ditolak: Batas waktu check-in adalah 06.00–12.00 WIB." },
           { status: 400 }
         );
       }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Validasi RBAC ketat: Hanya HRD yang dapat mengoreksi
     if (userProfile.peran !== "hrd") {
       return NextResponse.json(
-        { error: "Forbidden: Hanya HRD yang berwenang mengoreksi absensi (PRD BR-03)." },
+        { error: "Forbidden: Hanya HRD yang berwenang mengoreksi absensi." },
         { status: 403 }
       );
     }

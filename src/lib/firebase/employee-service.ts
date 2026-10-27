@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "./config";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { deduplicateAuditLogs } from "./audit-service";
 import akunUjiData from "../../../data/seeds/akun_uji.json";
 import profilesData from "../../../data/seeds/profiles.json";
 
@@ -108,17 +109,17 @@ async function logAuditActivity(logEntry: {
     try {
       const stored = localStorage.getItem(AUDIT_LOG_STORE_KEY);
       const list = stored ? JSON.parse(stored) : [];
-      list.unshift(entry);
-      localStorage.setItem(AUDIT_LOG_STORE_KEY, JSON.stringify(list));
+      const cleanList = deduplicateAuditLogs([entry, ...list]);
+      localStorage.setItem(AUDIT_LOG_STORE_KEY, JSON.stringify(cleanList));
     } catch (e) {
       console.warn("Gagal simpan audit log lokal:", e);
     }
   }
 
-  // Simpan ke Cloud Firestore koleksi audit_log
+  // Simpan ke Cloud Firestore koleksi audit_log (idempotent setDoc)
   try {
     await ensureActiveFirebaseAuth();
-    await addDoc(collection(db, "audit_log"), entry);
+    await setDoc(doc(db, "audit_log", entry.id), entry);
   } catch (err) {
     console.warn("Gagal simpan audit log ke Firestore:", err);
   }

@@ -1,4 +1,4 @@
-import { addDoc, collection } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { db } from "./config";
 
 export interface LogAuditParams {
@@ -9,6 +9,47 @@ export interface LogAuditParams {
   nilaiSesudah?: unknown;
   pelakuId?: string;
   pelakuNama?: string;
+}
+
+/**
+ * Deduplikasi daftar audit log berdasarkan ID dan fingerprint bisnis
+ * (mencegah duplikasi ganda antara localStorage dan Firestore)
+ */
+export function deduplicateAuditLogs(list: any[]): any[] {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
+  const cleanList: any[] = [];
+
+  for (const item of list) {
+    if (!item) continue;
+
+    // Normalisasi ID
+    const rawId = item.id !== undefined && item.id !== null ? String(item.id).trim() : "";
+    if (rawId && seenIds.has(rawId)) {
+      continue;
+    }
+
+    // Fingerprint bisnis: aksi + nama_tabel + data_id + pelaku + bucket waktu 5 detik
+    const rawTime = item.dibuat_pada || "";
+    const timeMs = new Date(rawTime).getTime();
+    const timeBucket = isNaN(timeMs) ? rawTime : Math.floor(timeMs / 5000);
+    const pelaku = item.pelaku_id || item["pelaku (bantu)"] || "";
+    const aksi = item.aksi || "";
+    const tabel = item.nama_tabel || "";
+    const dataId = item.data_id || "";
+
+    const fp = `${aksi}|${tabel}|${dataId}|${pelaku}|${timeBucket}`;
+    if (fp && seenFingerprints.has(fp)) {
+      continue;
+    }
+
+    if (rawId) seenIds.add(rawId);
+    if (fp) seenFingerprints.add(fp);
+    cleanList.push(item);
+  }
+
+  return cleanList;
 }
 
 export async function logAuditActivity({
@@ -48,22 +89,22 @@ export async function logAuditActivity({
       dibuat_pada: nowIso,
     };
 
-    // 1. Simpan ke local store agar langsung reaktif di UI Audit Log Pengaturan
+    // 1. Simpan ke local store dengan deduplikasi
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("karsahr_audit_log_store");
         const list = stored ? JSON.parse(stored) : [];
-        list.unshift(auditEntry);
-        localStorage.setItem("karsahr_audit_log_store", JSON.stringify(list));
+        const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+        localStorage.setItem("karsahr_audit_log_store", JSON.stringify(cleanList));
         window.dispatchEvent(new Event("storage"));
       } catch (err) {
         console.warn("Gagal simpan audit log lokal:", err);
       }
     }
 
-    // 2. Simpan ke Firestore secara asinkron
+    // 2. Simpan ke Firestore dengan ID dokumen tetap (idempotent setDoc)
     try {
-      await addDoc(collection(db, "audit_log"), auditEntry);
+      await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry);
     } catch (e) {
       // Abaikan jika offline / permission
     }

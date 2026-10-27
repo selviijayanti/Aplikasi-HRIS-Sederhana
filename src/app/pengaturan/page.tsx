@@ -21,6 +21,7 @@ import {
   updateHoliday,
   deleteHoliday,
 } from "@/lib/firebase/holiday-service";
+import { deduplicateAuditLogs } from "@/lib/firebase/audit-service";
 
 // Helper Pencarian Nama Asli Karyawan dari Master profiles.json
 function resolveSeedEmployeeName(karyawanId: string, fallback?: string): string {
@@ -195,33 +196,18 @@ export default function PengaturanPage() {
   const [divisiList, setDivisiList] = useState<any[]>(divisiData as any[]);
 
 
-  // State Audit Log aktivitas
+  // State Audit Log aktivitas (deduplikasi ketat agar tidak ada entri tercatat ganda)
   const [auditLogList, setAuditLogList] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("karsahr_audit_log_store");
         if (stored) {
           const parsed = JSON.parse(stored);
-          const map = new Map<string, any>();
-          // Seed data dimasukkan dulu sebagai basis (dengan ID dinormalisasi ke string)
-          (auditLogData as Array<any>).forEach((item: any, i: number) => {
-            const key = normalizeAuditId(item, i);
-            map.set(key, { ...item, id: key });
-          });
-          // localStorage override/menambah entry baru di atasnya
-          parsed.forEach((item: any, i: number) => {
-            const key = normalizeAuditId(item, i);
-            map.set(key, { ...item, id: key });
-          });
-          return Array.from(map.values());
+          return deduplicateAuditLogs([...parsed, ...(auditLogData as Array<any>)]);
         }
       } catch (e) {}
     }
-    // Normalisasi seed data saat tidak ada localStorage
-    return (auditLogData as Array<any>).map((item: any, i: number) => ({
-      ...item,
-      id: normalizeAuditId(item, i),
-    }));
+    return deduplicateAuditLogs(auditLogData as Array<any>);
   });
 
   // Sinkronisasi otomatis log audit dari localStorage & Firestore
@@ -231,16 +217,7 @@ export default function PengaturanPage() {
         const stored = localStorage.getItem("karsahr_audit_log_store");
         if (stored) {
           const parsed = JSON.parse(stored);
-          const map = new Map<string, any>();
-          (auditLogData as Array<any>).forEach((item: any, i: number) => {
-            const key = normalizeAuditId(item, i);
-            map.set(key, { ...item, id: key });
-          });
-          parsed.forEach((item: any, i: number) => {
-            const key = normalizeAuditId(item, i);
-            map.set(key, { ...item, id: key });
-          });
-          setAuditLogList(Array.from(map.values()));
+          setAuditLogList((prev) => deduplicateAuditLogs([...parsed, ...prev]));
         }
       } catch (e) {}
     };
@@ -251,20 +228,12 @@ export default function PengaturanPage() {
       .then((snap) => {
         if (!snap.empty) {
           const remoteLogs: any[] = [];
-          snap.forEach((d) => remoteLogs.push({ ...d.data(), id: String(d.id) }));
-          setAuditLogList((prev) => {
-            const map = new Map<string, any>();
-            // Gunakan prev sebagai basis, lalu Firestore meng-override
-            prev.forEach((item) => {
-              const key = String(item.id);
-              map.set(key, { ...item, id: key });
-            });
-            remoteLogs.forEach((item) => {
-              const key = String(item.id);
-              map.set(key, { ...item, id: key });
-            });
-            return Array.from(map.values());
+          snap.forEach((d) => {
+            const data = d.data();
+            const id = data.id ? String(data.id) : String(d.id);
+            remoteLogs.push({ ...data, id });
           });
+          setAuditLogList((prev) => deduplicateAuditLogs([...remoteLogs, ...prev]));
         }
       })
       .catch(() => {});
@@ -612,13 +581,13 @@ export default function PengaturanPage() {
         nilai_sesudah: JSON.stringify({ nama: newDiv.nama, manajer_id: newDiv.manajer_id }),
         dibuat_pada: nowIso,
       };
-      await addDoc(collection(db, "audit_log"), auditEntry);
+      await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry);
 
       const storedAudit = localStorage.getItem("karsahr_audit_log_store");
       const list = storedAudit ? JSON.parse(storedAudit) : [];
-      list.unshift(auditEntry);
-      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(list));
-      setAuditLogList((prev) => [auditEntry, ...prev]);
+      const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(cleanList));
+      setAuditLogList((prev) => deduplicateAuditLogs([auditEntry, ...prev]));
     } catch (err) {
       console.warn("Firestore sync warning for new divisi:", err);
     }
@@ -686,13 +655,13 @@ export default function PengaturanPage() {
         }),
         dibuat_pada: nowIso,
       };
-      await addDoc(collection(db, "audit_log"), auditEntry);
+      await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry);
 
       const storedAudit = localStorage.getItem("karsahr_audit_log_store");
       const list = storedAudit ? JSON.parse(storedAudit) : [];
-      list.unshift(auditEntry);
-      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(list));
-      setAuditLogList((prev) => [auditEntry, ...prev]);
+      const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(cleanList));
+      setAuditLogList((prev) => deduplicateAuditLogs([auditEntry, ...prev]));
     } catch (err) {
       console.warn("Firestore sync warning for divisi manager update:", err);
     }
@@ -792,15 +761,15 @@ export default function PengaturanPage() {
         }),
         dibuat_pada: nowIso,
       };
-      await addDoc(collection(db, "audit_log"), auditEntry).catch(() => {});
+      await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry).catch(() => {});
 
       if (typeof window !== "undefined") {
         const storedAudit = localStorage.getItem("karsahr_audit_log_store");
         const list = storedAudit ? JSON.parse(storedAudit) : [];
-        list.unshift(auditEntry);
-        localStorage.setItem("karsahr_audit_log_store", JSON.stringify(list));
+        const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+        localStorage.setItem("karsahr_audit_log_store", JSON.stringify(cleanList));
       }
-      setAuditLogList((prev) => [auditEntry, ...prev]);
+      setAuditLogList((prev) => deduplicateAuditLogs([auditEntry, ...prev]));
 
       // 3. Perbarui Local State & LocalStorage
       setKuotaList((prev) => {
@@ -1046,7 +1015,8 @@ export default function PengaturanPage() {
   };
 
   const filteredAudit = useMemo(() => {
-    return auditLogList
+    const cleanList = deduplicateAuditLogs(auditLogList);
+    return cleanList
       .filter((log) => {
         if (filterTanggal) {
           const rawDate = log.dibuat_pada || "";

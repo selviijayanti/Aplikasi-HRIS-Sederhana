@@ -1,5 +1,6 @@
-import { collection, doc, getDocs, updateDoc, query, where, addDoc } from "firebase/firestore";
+import { collection, doc, getDocs, updateDoc, query, where, setDoc } from "firebase/firestore";
 import { db } from "./config";
+import { deduplicateAuditLogs } from "./audit-service";
 import absensiSeedData from "../../../data/seeds/absensi.json";
 import profilesData from "../../../data/seeds/profiles.json";
 import pengajuanCutiSeed from "../../../data/seeds/pengajuan_cuti.json";
@@ -143,8 +144,8 @@ export async function recordAuditLog(entry: {
     try {
       const stored = localStorage.getItem(AUDIT_LOG_STORE_KEY);
       const list = stored ? JSON.parse(stored) : [];
-      list.unshift(auditEntry);
-      localStorage.setItem(AUDIT_LOG_STORE_KEY, JSON.stringify(list));
+      const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+      localStorage.setItem(AUDIT_LOG_STORE_KEY, JSON.stringify(cleanList));
       window.dispatchEvent(new Event("storage"));
     } catch (e) {
       console.warn("Gagal simpan audit log ke storage:", e);
@@ -152,8 +153,7 @@ export async function recordAuditLog(entry: {
   }
 
   try {
-    const auditColl = collection(db, "audit_log");
-    await addDoc(auditColl, auditEntry);
+    await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry);
   } catch (err) {
     // Silent fail jika Firestore offline/unauthenticated
   }

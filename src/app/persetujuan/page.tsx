@@ -936,23 +936,7 @@ export default function PersetujuanPage() {
         refundLeaveQuotaStore(cancelTargetItem.karyawan_id || cancelTargetItem.nik, cancelTargetItem.jumlah_hari);
       }
 
-      // 3. Catat ke audit log
-      logAuditActivity({
-        pelakuId: user?.id || "hrd-rina",
-        pelakuNama: user?.nama_lengkap || "Rina Kusumawardani",
-        aksi: "batal_cuti_hrd",
-        namaTabel: "pengajuan_cuti",
-        dataId: cancelTargetItem.id,
-        nilaiSebelum: JSON.stringify({ status: cancelTargetItem.status || "disetujui" }),
-        nilaiSesudah: JSON.stringify({
-          status: "dibatalkan",
-          dibatalkan_oleh: cancellerName,
-          alasan: cleanReason,
-          jumlah_hari: cancelTargetItem.jumlah_hari,
-        }),
-      });
-
-      // 4. Update local states
+      // 3. Update local states
       setStatusMap((prev) => ({ ...prev, [cancelTargetItem.id]: "dibatalkan" }));
       setOverridesRecord((prev) => ({
         ...prev,

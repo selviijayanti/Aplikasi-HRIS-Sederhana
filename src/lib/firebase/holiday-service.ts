@@ -8,6 +8,7 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { db } from "./config";
+import { deduplicateAuditLogs } from "./audit-service";
 import hariLiburSeed from "../../../data/seeds/hari_libur.json";
 
 export type JenisHariLibur = "nasional" | "cuti_bersama" | "perusahaan";
@@ -97,17 +98,17 @@ async function recordAuditLog(
       dibuat_pada: nowIso,
     };
 
-    // 1. Simpan ke Firestore
-    await addDoc(collection(db, "audit_log"), auditEntry).catch((e) =>
+    // 1. Simpan ke Firestore dengan ID dokumen tetap
+    await setDoc(doc(db, "audit_log", auditEntry.id), auditEntry).catch((e) =>
       console.warn("Audit log Firestore warning:", e)
     );
 
-    // 2. Simpan ke localStorage audit log store
+    // 2. Simpan ke localStorage audit log store dengan deduplikasi
     if (typeof window !== "undefined") {
       const storedAudit = localStorage.getItem("karsahr_audit_log_store");
       const list = storedAudit ? JSON.parse(storedAudit) : [];
-      list.unshift(auditEntry);
-      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(list));
+      const cleanList = deduplicateAuditLogs([auditEntry, ...list]);
+      localStorage.setItem("karsahr_audit_log_store", JSON.stringify(cleanList));
     }
   } catch (e) {
     console.warn("Gagal mencatat audit log hari libur:", e);

@@ -177,16 +177,25 @@ export async function POST(request: NextRequest) {
     // 5. Validasi PRD BR-07: Irisan tanggal dengan pengajuan aktif lainnya
     const overrides = clientOverrides || getLeaveStatusOverrides();
     const allLeaves = [
-      ...(clientSubmitted || getSubmittedLeaves()),
-      ...(pengajuanCutiSeedData as Array<any>).map((p) => ({
-        id: p.id,
-        karyawan_id: p.karyawan_id,
-        nama_karyawan: p["pemohon (bantu)"] || "",
-        nik_karyawan: p.nik_karyawan || "",
-        tanggal_mulai: p.tanggal_mulai,
-        tanggal_selesai: p.tanggal_selesai || p.tanggal_mulai,
-        status: overrides[p.id]?.status || p.status,
-      })),
+      ...(clientSubmitted || getSubmittedLeaves()).map((l: any) => {
+        const aliasId = l.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : l.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+        return {
+          ...l,
+          status: overrides[l.id]?.status || (aliasId && overrides[aliasId]?.status) || l.status,
+        };
+      }),
+      ...(pengajuanCutiSeedData as Array<any>).map((p) => {
+        const aliasId = p.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : p.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+        return {
+          id: p.id,
+          karyawan_id: p.karyawan_id,
+          nama_karyawan: p["pemohon (bantu)"] || "",
+          nik_karyawan: p.nik_karyawan || "",
+          tanggal_mulai: p.tanggal_mulai,
+          tanggal_selesai: p.tanggal_selesai || p.tanggal_mulai,
+          status: overrides[p.id]?.status || (aliasId && overrides[aliasId]?.status) || p.status,
+        };
+      }),
     ];
 
     const userActiveLeaves = allLeaves.filter((l) => {
@@ -196,7 +205,10 @@ export async function POST(request: NextRequest) {
         (effectiveName && l.nama_karyawan?.toLowerCase() === effectiveName.toLowerCase());
       if (!isOwner) return false;
 
-      const st = l.status?.toLowerCase();
+      const aliasId = l.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : l.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+      const st = (overrides[l.id]?.status || (aliasId && overrides[aliasId]?.status) || l.status || "").toLowerCase().trim();
+      // PRD BR-07: Pengajuan dibatalkan atau ditolak TIDAK BOLEH memblokir pengajuan baru
+      if (st === "dibatalkan" || st === "ditolak") return false;
       return st === "diajukan" || st === "disetujui_atasan" || st === "disetujui";
     });
 

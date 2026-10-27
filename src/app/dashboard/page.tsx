@@ -21,7 +21,7 @@ import profilesData from "../../../data/seeds/profiles.json";
 import divisiData from "../../../data/seeds/divisi.json";
 import { submitLeaveRequestToFirestore, cancelLeaveRequestInFirestore } from "@/lib/firebase/leave-service";
 import { getLeaveStatusOverrides, getSubmittedLeaves, calculateAccurateLeaveQuota } from "@/lib/utils/leave-store";
-import { getRawAttendanceStore, persistAttendanceStore, AttendanceRecord } from "@/lib/firebase/attendance-service";
+import { getRawAttendanceStore, persistAttendanceStore, fetchAttendanceRecords, AttendanceRecord } from "@/lib/firebase/attendance-service";
 import { logAuditActivity } from "@/lib/firebase/audit-service";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
@@ -221,58 +221,87 @@ export default function DashboardPage() {
     return { id: finalDivId, nama: divName };
   }, [user]);
 
-  // Statistik Ringkasan Tim Divisi Hari Ini (Khusus Atasan - PRD Bab 7)
-  const teamStats = useMemo(() => {
-    if (!user || user.peran !== "atasan") {
-      return { totalMembers: 0, hadirCount: 0, tepatWaktuCount: 0, terlambatCount: 0, cutiIzinCount: 0, pctHadir: 100, cutiIzinNames: [] };
-    }
+  // Statistik Ringkasan Tim Divisi Hari Ini (Khusus Atasan - PRD Bab 7 & Selaras 100% dengan Tab Tim di /absensi)
+  const [teamStats, setTeamStats] = useState({
+    totalMembers: 5,
+    hadirCount: 0,
+    tepatWaktuCount: 0,
+    terlambatCount: 0,
+    cutiIzinCount: 0,
+    tanpaKeteranganCount: 5,
+    pctHadir: 0,
+    cutiIzinNames: [] as string[],
+  });
 
-    const divNameLower = myDivisionInfo.nama.toLowerCase();
-    const members = (profilesData as Array<any>).filter((p) => {
-      if (!p.aktif) return false;
-      if (p.divisi_id === myDivisionInfo.id) return true;
-      const pDiv = (p["divisi (bantu)"] || "").toLowerCase();
-      return pDiv.includes(divNameLower) || divNameLower.includes(pDiv);
-    });
+  useEffect(() => {
+    if (!user || user.peran !== "atasan") return;
 
-    const memberIds = new Set(members.map((m) => m.id));
-    const rawStore = getRawAttendanceStore();
-    const todayDateStr = formatWIBDateString(new Date());
-    const todayRecords = rawStore.filter((r) => r.tanggal === todayDateStr && memberIds.has(r.karyawan_id));
+    let isMounted = true;
+    const calculateTeamStats = async () => {
+      try {
+        const todayDateStr = formatWIBDateString(new Date());
+        const records = await fetchAttendanceRecords(user, {
+          viewScope: "team",
+          date: todayDateStr,
+        });
 
-    let tepatWaktu = 0;
-    let terlambat = 0;
-    let cutiIzin = 0;
-    const cutiNames: string[] = [];
+        if (!isMounted) return;
 
-    members.forEach((m) => {
-      const rec = todayRecords.find((r) => r.karyawan_id === m.id);
-      if (rec) {
-        if (rec.status === "cuti" || rec.status === "izin" || rec.status === "sakit") {
-          cutiIzin++;
-          cutiNames.push(m.nama_lengkap.split(" ")[0]);
-        } else if (isLateAttendance(rec.jam_masuk) || rec.status === "terlambat") {
-          terlambat++;
-        } else {
-          tepatWaktu++;
-        }
-      } else {
-        tepatWaktu++;
+        // Deduplikasi per karyawan: 1 karyawan tepat 1 baris untuk tab tim
+        const dedupMap = new Map<string, AttendanceRecord>();
+        records.forEach((row) => {
+          const key = (row.nik_karyawan || row["nama (bantu)"] || row.karyawan_id).trim().toLowerCase();
+          if (!dedupMap.has(key)) {
+            dedupMap.set(key, row);
+          }
+        });
+        const teamRows = Array.from(dedupMap.values());
+
+        let tepatWaktu = 0;
+        let terlambat = 0;
+        let cutiIzin = 0;
+        let tanpaKeterangan = 0;
+        const cutiNames: string[] = [];
+
+        teamRows.forEach((r) => {
+          const s = (r.status || "").toLowerCase();
+          if (s === "hadir") {
+            tepatWaktu++;
+          } else if (s === "terlambat") {
+            terlambat++;
+          } else if (s === "sakit" || s === "izin" || s === "cuti") {
+            cutiIzin++;
+            const name = (r["nama (bantu)"] || "").split(" ")[0];
+            if (name) cutiNames.push(name);
+          } else {
+            tanpaKeterangan++;
+          }
+        });
+
+        const totalMembers = teamRows.length || 5;
+        const hadir = tepatWaktu + terlambat;
+        const pct = totalMembers > 0 ? Math.round((hadir / totalMembers) * 100) : 0;
+
+        setTeamStats({
+          totalMembers,
+          hadirCount: hadir,
+          tepatWaktuCount: tepatWaktu,
+          terlambatCount: terlambat,
+          cutiIzinCount: cutiIzin,
+          tanpaKeteranganCount: tanpaKeterangan,
+          pctHadir: pct,
+          cutiIzinNames: cutiNames,
+        });
+      } catch (err) {
+        console.error("Gagal sinkronisasi statistik kehadiran tim:", err);
       }
-    });
+    };
 
-    const totalMembers = members.length || 5;
-    const hadir = tepatWaktu + terlambat;
-    const pct = totalMembers > 0 ? Math.round((hadir / totalMembers) * 100) : 100;
-
-    return {
-      totalMembers,
-      hadirCount: hadir,
-      tepatWaktuCount: tepatWaktu,
-      terlambatCount: terlambat,
-      cutiIzinCount: cutiIzin,
-      pctHadir: pct,
-      cutiIzinNames: cutiNames,
+    calculateTeamStats();
+    window.addEventListener("storage", calculateTeamStats);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("storage", calculateTeamStats);
     };
   }, [user, myDivisionInfo]);
 

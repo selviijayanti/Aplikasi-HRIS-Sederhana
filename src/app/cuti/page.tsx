@@ -389,11 +389,11 @@ export default function CutiPage() {
           ...(isAndi ? initialDefaultPengajuan : []),
         ];
 
-        // Deduplikasi ketat berdasarkan jenis + tanggal_mulai + tanggal_selesai
-        const uniqueByRange = new Map<string, any>();
+        // Deduplikasi per dokumen ID unik & normalisasi alias seed cuti-01
+        const uniqueById = new Map<string, any>();
 
         allCandidates.forEach((item) => {
-          if (!item) return;
+          if (!item || !item.id) return;
           const sMulai = item.tanggal_mulai?.split("T")[0];
           const sSelesai = (item.tanggal_selesai || item.tanggal_mulai)?.split("T")[0];
 
@@ -402,25 +402,25 @@ export default function CutiPage() {
             return;
           }
 
-          const rangeKey = `${item.jenis?.toLowerCase()}_${sMulai}_${sSelesai}`;
           const aliasId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : item.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+          const canonicalId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : item.id;
           const updatedStatus = overrides[item.id]?.status || (aliasId && overrides[aliasId]?.status) || item.status || "diajukan";
-          const normalized = { ...item, status: updatedStatus };
+          const normalized = { ...item, id: canonicalId, status: updatedStatus };
 
-          if (!uniqueByRange.has(rangeKey)) {
-            uniqueByRange.set(rangeKey, normalized);
+          if (!uniqueById.has(canonicalId)) {
+            uniqueById.set(canonicalId, normalized);
           } else {
             // Jika sudah ada status ditolak/dibatalkan/disetujui, utamakan yang memiliki status mutakhir
-            const existing = uniqueByRange.get(rangeKey);
+            const existing = uniqueById.get(canonicalId);
             if (updatedStatus === "ditolak" || updatedStatus === "dibatalkan" || updatedStatus === "disetujui") {
-              uniqueByRange.set(rangeKey, normalized);
+              uniqueById.set(canonicalId, normalized);
             } else if (existing.id?.startsWith("cuti-") && !item.id?.startsWith("cuti-")) {
-              uniqueByRange.set(rangeKey, normalized);
+              uniqueById.set(canonicalId, normalized);
             }
           }
         });
 
-        return Array.from(uniqueByRange.values());
+        return Array.from(uniqueById.values());
       });
     };
 
@@ -455,10 +455,14 @@ export default function CutiPage() {
     if (!tanggalMulai || !tanggalSelesai) return null;
     if (tanggalMulai > tanggalSelesai) return null;
 
+    const overrides = getLeaveStatusOverrides();
     // Irisan dengan pengajuan aktif lainnya milik karyawan (status: diajukan, disetujui_atasan, disetujui)
     const activeLeaves = daftarPengajuan.filter((item) => {
-      const st = item.status?.toLowerCase();
-      return st === "diajukan" || st === "disetujui_atasan" || st === "disetujui";
+      const aliasId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : item.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+      const currentSt = (overrides[item.id]?.status || (aliasId && overrides[aliasId]?.status) || item.status || "").toLowerCase().trim();
+      // PRD BR-07: Pengajuan yang berstatus ditolak atau dibatalkan TIDAK BOLEH memblokir pengajuan baru
+      if (currentSt === "dibatalkan" || currentSt === "ditolak") return false;
+      return currentSt === "diajukan" || currentSt === "disetujui_atasan" || currentSt === "disetujui";
     });
 
     for (const item of activeLeaves) {

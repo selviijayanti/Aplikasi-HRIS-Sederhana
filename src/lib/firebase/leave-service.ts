@@ -163,16 +163,25 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
   // Pengecekan overlap / irisan dengan pengajuan aktif lainnya
   const overrides = getLeaveStatusOverrides();
   const allExistingLeaves = [
-    ...getSubmittedLeaves(),
-    ...(pengajuanCutiSeedData as Array<any>).map((p) => ({
-      id: p.id,
-      karyawan_id: p.karyawan_id,
-      nama_karyawan: p["pemohon (bantu)"] || "",
-      nik_karyawan: p.nik_karyawan || "",
-      tanggal_mulai: p.tanggal_mulai,
-      tanggal_selesai: p.tanggal_selesai || p.tanggal_mulai,
-      status: overrides[p.id]?.status || p.status,
-    })),
+    ...getSubmittedLeaves().map((l) => {
+      const aliasId = l.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : l.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+      return {
+        ...l,
+        status: overrides[l.id]?.status || (aliasId && overrides[aliasId]?.status) || l.status,
+      };
+    }),
+    ...(pengajuanCutiSeedData as Array<any>).map((p) => {
+      const aliasId = p.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : p.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+      return {
+        id: p.id,
+        karyawan_id: p.karyawan_id,
+        nama_karyawan: p["pemohon (bantu)"] || "",
+        nik_karyawan: p.nik_karyawan || "",
+        tanggal_mulai: p.tanggal_mulai,
+        tanggal_selesai: p.tanggal_selesai || p.tanggal_mulai,
+        status: overrides[p.id]?.status || (aliasId && overrides[aliasId]?.status) || p.status,
+      };
+    }),
   ];
 
   const userActiveLeaves = allExistingLeaves.filter((l) => {
@@ -183,7 +192,10 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       (payload.namaKaryawan && l.nama_karyawan?.toLowerCase() === payload.namaKaryawan.toLowerCase());
     if (!isUser) return false;
 
-    const st = l.status?.toLowerCase();
+    const aliasId = l.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : l.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+    const st = (overrides[l.id]?.status || (aliasId && overrides[aliasId]?.status) || l.status || "").toLowerCase().trim();
+    // PRD BR-07: Pengajuan yang dibatalkan atau ditolak TIDAK BOLEH memblokir pengajuan baru
+    if (st === "dibatalkan" || st === "ditolak") return false;
     return st === "diajukan" || st === "disetujui_atasan" || st === "disetujui";
   });
 

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/auth-context";
 import AppLayout from "@/components/layout/AppLayout";
 import { formatRupiah } from "@/lib/utils/time";
 import { exportToCSV } from "@/lib/utils/csv";
@@ -883,11 +885,20 @@ const STATIC_BASE_DATE = new Date("2026-10-15T00:00:00Z");
 const INITIAL_PERIODS = generateDynamicPeriods(STATIC_BASE_DATE);
 
 export default function LaporanPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [dynamicPeriods, setDynamicPeriods] = useState<PeriodeConfig[]>(INITIAL_PERIODS);
   const [selectedPeriodeKey, setSelectedPeriodeKey] = useState("2026-10");
   const [divisiFilter, setDivisiFilter] = useState("Semua Divisi");
   const [hoveredWeekIdx, setHoveredWeekIdx] = useState<number | null>(null);
   const [hoveredDivisiIdx, setHoveredDivisiIdx] = useState<number | null>(null);
+
+  // Guard: Hanya peran HRD yang boleh mengakses laporan & rekap gaji (PRD BR-11 & NFR-3)
+  useEffect(() => {
+    if (!loading && user && user.peran?.toLowerCase() !== "hrd") {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, router]);
 
   // Recalculate dynamically on client-side mount (safely deferred in useEffect)
   useEffect(() => {
@@ -996,6 +1007,10 @@ export default function LaporanPage() {
       exportData
     );
   };
+
+  if (loading || !user || user.peran?.toLowerCase() !== "hrd") {
+    return null;
+  }
 
   return (
     <>

@@ -45,8 +45,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const stored = localStorage.getItem(STORAGE_KEY);
         let parsedUser: AuthUser | null = null;
         if (stored) {
-          parsedUser = JSON.parse(stored);
-          setUser(parsedUser);
+          try {
+            parsedUser = JSON.parse(stored);
+            if (parsedUser) {
+              setUser(parsedUser);
+              if (typeof document !== "undefined") {
+                document.cookie = `karsahr_session=${encodeURIComponent(
+                  JSON.stringify({
+                    id: parsedUser.id,
+                    email: parsedUser.email,
+                    peran: parsedUser.peran,
+                  })
+                )}; path=/; max-age=86400; SameSite=Lax`;
+              }
+            }
+          } catch {}
         }
 
         // Setup Firebase onAuthStateChanged listener
@@ -203,6 +216,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(authUser);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
 
+    // NFR-3 / BR-11: Simpan cookie sesi untuk proteksi middleware server-side
+    if (typeof document !== "undefined") {
+      document.cookie = `karsahr_session=${encodeURIComponent(
+        JSON.stringify({
+          id: authUser.id,
+          email: authUser.email,
+          peran: authUser.peran,
+        })
+      )}; path=/; max-age=86400; SameSite=Lax`;
+    }
+
     return { success: true };
   };
 
@@ -214,6 +238,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
+    if (typeof document !== "undefined") {
+      document.cookie = "karsahr_session=; path=/; max-age=0; SameSite=Lax";
+    }
     router.push("/");
   };
 

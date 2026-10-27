@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import { exportToCSV } from "@/lib/utils/csv";
@@ -12,6 +13,7 @@ import {
   AttendanceRecord,
 } from "@/lib/firebase/attendance-service";
 import AttendanceCalendarView from "@/components/absensi/AttendanceCalendarView";
+import { formatWIBDateString } from "@/lib/utils/time";
 import "./absensi.css";
 
 export interface AttendanceRow {
@@ -55,7 +57,14 @@ export function formatTimeWIB(timeStr: string | null | undefined): string {
 }
 
 export default function AbsensiPage() {
+  const router = useRouter();
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
 
   // Tab State:
   // - Karyawan: Terkunci pada "pribadi"
@@ -67,7 +76,7 @@ export default function AbsensiPage() {
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
 
   // Filter Harian & Periode
-  const [selectedDate, setSelectedDate] = useState("2026-10-15");
+  const [selectedDate, setSelectedDate] = useState(() => formatWIBDateString(new Date()));
   const [selectedMonth, setSelectedMonth] = useState("2026-10");
   const [selectedDivisi, setSelectedDivisi] = useState("Semua");
   const [selectedStatus, setSelectedStatus] = useState("Semua");
@@ -211,7 +220,11 @@ export default function AbsensiPage() {
       };
     });
 
-    // Deduplikasi per karyawan: 1 karyawan tepat 1 baris
+    if (activeTab === "pribadi") {
+      return rawRows.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
+    }
+
+    // Deduplikasi per karyawan: 1 karyawan tepat 1 baris untuk tab tim / perusahaan
     const dedupMap = new Map<string, AttendanceRow>();
     rawRows.forEach((row) => {
       const key = (row.nik_karyawan || row.nama).trim().toLowerCase();
@@ -221,7 +234,7 @@ export default function AbsensiPage() {
     });
 
     return Array.from(dedupMap.values());
-  }, [attendanceData, profileMap]);
+  }, [attendanceData, profileMap, activeTab]);
 
   // Hitung Metrik Ringkasan (Dari seluruh anggota tim divisi yang terdeduplikasi)
   const metrics = useMemo(() => {
@@ -366,6 +379,10 @@ export default function AbsensiPage() {
   const isKaryawan = user?.peran === "karyawan";
   const isAtasan = user?.peran === "atasan";
   const isHRD = user?.peran === "hrd";
+
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <>
@@ -565,6 +582,7 @@ export default function AbsensiPage() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="filter-select"
                 >
+                  <option value="2026-10-27">Selasa, 27 Okt 2026 (Hari Ini)</option>
                   <option value="2026-10-15">Kamis, 15 Okt 2026</option>
                   <option value="2026-10-14">Rabu, 14 Okt 2026</option>
                   <option value="2026-10-13">Selasa, 13 Okt 2026</option>
@@ -699,6 +717,7 @@ export default function AbsensiPage() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="filter-select"
                 >
+                  <option value="2026-10-27">Selasa, 27 Okt 2026 (Hari Ini)</option>
                   <option value="2026-10-15">Kamis, 15 Okt 2026</option>
                   <option value="2026-10-14">Rabu, 14 Okt 2026</option>
                   <option value="2026-10-13">Selasa, 13 Okt 2026</option>

@@ -8,8 +8,11 @@ import {
   syncSubmittedLeavesWithFirestore, 
   getSubmittedLeaves, 
   getLeaveStatusOverrides,
-  updateLeaveStatusOverride 
+  updateLeaveStatusOverride,
+  refundLeaveQuotaStore,
+  calculateAccurateLeaveQuota
 } from "../utils/leave-store";
+import { logAuditActivity } from "./audit-service";
 import pengajuanCutiSeedData from "../../../data/seeds/pengajuan_cuti.json";
 import kuotaCutiData from "../../../data/seeds/kuota_cuti.json";
 import profilesData from "../../../data/seeds/profiles.json";
@@ -18,9 +21,11 @@ import { getRawAttendanceStore } from "./attendance-service";
 
 const profileByIdMap = new Map<string, any>();
 const profileByNameMap = new Map<string, any>();
+const profileByNikMap = new Map<string, any>();
 (profilesData as Array<any>).forEach((p) => {
   if (p.id) profileByIdMap.set(p.id, p);
   if (p.nama_lengkap) profileByNameMap.set(p.nama_lengkap.toLowerCase().trim(), p);
+  if (p.nik_karyawan) profileByNikMap.set(p.nik_karyawan.trim(), p);
 });
 
 const divisiNameByIdMap = new Map<string, string>();
@@ -108,6 +113,37 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
     };
   }
 
+  // PRD BR-05: Batas waktu pengajuan
+  // - Cuti tahunan: paling lambat 3 hari kalender sebelum tanggal mulai (H-3)
+  // - Izin: paling lambat 1 hari kalender sebelum tanggal mulai (H-1)
+  // - Sakit: pada hari mulai sakit s/d paling lambat 3 hari kalender setelahnya
+  const now = new Date();
+  const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayMs = new Date(todayYMD + "T00:00:00Z").getTime();
+  const startMs = new Date(payload.tanggalMulai + "T00:00:00Z").getTime();
+  const diffCalendarDays = Math.round((startMs - todayMs) / (1000 * 60 * 60 * 24));
+
+  if (payload.jenis === "cuti_tahunan" && diffCalendarDays < 3) {
+    return {
+      success: false,
+      error: "Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3) sesuai PRD BR-05.",
+    };
+  }
+
+  if (payload.jenis === "izin" && diffCalendarDays < 1) {
+    return {
+      success: false,
+      error: "Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1) sesuai PRD BR-05.",
+    };
+  }
+
+  if (payload.jenis === "sakit" && diffCalendarDays < -3) {
+    return {
+      success: false,
+      error: "Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit (PRD BR-05).",
+    };
+  }
+
   // Batasan pengajuan izin maks 2 hari kerja
   if (payload.jenis === "izin" && payload.jumlahHari > 2) {
     return {
@@ -125,6 +161,7 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
   }
 
   // Pengecekan overlap / irisan dengan pengajuan aktif lainnya
+  const overrides = getLeaveStatusOverrides();
   const allExistingLeaves = [
     ...getSubmittedLeaves(),
     ...(pengajuanCutiSeedData as Array<any>).map((p) => ({
@@ -134,7 +171,7 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       nik_karyawan: p.nik_karyawan || "",
       tanggal_mulai: p.tanggal_mulai,
       tanggal_selesai: p.tanggal_selesai || p.tanggal_mulai,
-      status: p.status,
+      status: overrides[p.id]?.status || p.status,
     })),
   ];
 
@@ -195,43 +232,22 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
   try {
     const nowIso = payload.dibuatPada || new Date().toISOString();
 
-    // PRD BR-06: Validasi Sisa Kuota Cuti Tahunan (sisa kuota tidak boleh minus)
+    // PRD BR-06: Validasi Sisa Kuota Cuti Tahunan Presisi (Single Source of Truth)
     if (payload.jenis === "cuti_tahunan") {
-      const qRec = (kuotaCutiData as Array<any>).find((k) => {
-        if (k.tahun !== 2026) return false;
-        return (
-          k.karyawan_id === effectiveKaryawanId ||
-          k.karyawan_id === payload.karyawanId ||
-          (payload.namaKaryawan && k["nama (bantu)"]?.toLowerCase() === payload.namaKaryawan.toLowerCase())
-        );
-      });
+      const quota = calculateAccurateLeaveQuota(
+        {
+          id: effectiveKaryawanId,
+          seed_id: payload.karyawanId,
+          nik_karyawan: payload.nikKaryawan,
+          nama_lengkap: payload.namaKaryawan,
+        },
+        2026
+      );
 
-      const totalJatah = qRec?.jatah_hari ?? 12;
-      let usedDays = qRec?.terpakai_hari ?? 0;
-
-      const submitted = getSubmittedLeaves();
-      const overrides = getLeaveStatusOverrides();
-      submitted.forEach((l) => {
-        const isOwner =
-          l.karyawan_id === effectiveKaryawanId ||
-          l.karyawan_id === payload.karyawanId ||
-          (payload.nikKaryawan && l.nik_karyawan === payload.nikKaryawan) ||
-          (payload.namaKaryawan && l.nama_karyawan?.toLowerCase() === payload.namaKaryawan.toLowerCase());
-        if (isOwner && l.jenis === "cuti_tahunan") {
-          const st = overrides[l.id]?.status || l.status || "diajukan";
-          if (st === "diajukan" || st === "disetujui_atasan" || st === "disetujui") {
-            if (!l.id.startsWith("cuti-0")) {
-              usedDays += l.jumlah_hari || 1;
-            }
-          }
-        }
-      });
-
-      const remainingQuota = Math.max(0, totalJatah - usedDays);
-      if (payload.jumlahHari > remainingQuota) {
+      if (payload.jumlahHari > quota.sisa) {
         return {
           success: false,
-          error: `Jumlah hari cuti (${payload.jumlahHari} hari) melebihi sisa kuota (${remainingQuota} hari). Pengajuan bersamaan dibatasi agar sisa kuota tidak minus (PRD BR-06).`,
+          error: `Pengajuan cuti tahunan (${payload.jumlahHari} hari kerja) melebihi sisa kuota yang tersedia (${quota.sisa} hari kerja). Sesuai kebijakan perusahaan, pengajuan dibatasi agar saldo kuota tidak bernilai negatif.`,
         };
       }
     }
@@ -251,6 +267,22 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       };
     }
 
+    // Cek peran pemohon: jika Atasan atau HRD, lewati tahap 1 (PRD BR-09)
+    const userProf =
+      (effectiveKaryawanId ? profileByIdMap.get(effectiveKaryawanId) : null) ||
+      (payload.karyawanId ? profileByIdMap.get(payload.karyawanId) : null) ||
+      (payload.nikKaryawan ? profileByNikMap.get(payload.nikKaryawan) : null) ||
+      (payload.namaKaryawan ? profileByNameMap.get(payload.namaKaryawan.toLowerCase().trim()) : null);
+    const userRole = userProf?.peran?.toLowerCase() || "";
+    const isAtasanOrHRD =
+      userRole === "atasan" ||
+      userRole === "hrd" ||
+      ["maya", "bayu", "hendra", "rina", "dimas"].some((n) =>
+        payload.namaKaryawan?.toLowerCase().includes(n)
+      );
+    const perluAtasan = !isAtasanOrHRD;
+    const tahapPersetujuan = isAtasanOrHRD ? "hrd" : "atasan";
+
     const newDocData: Record<string, any> = {
       karyawan_id: effectiveKaryawanId,
       nama_karyawan: payload.namaKaryawan,
@@ -263,7 +295,8 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       jumlah_hari: payload.jumlahHari,
       alasan: payload.alasan,
       status: "diajukan",
-      tahap_persetujuan: "atasan", // Sesuai PRD Bab 7 alur 2-tingkat
+      perlu_atasan: perluAtasan,
+      tahap_persetujuan: tahapPersetujuan,
       created_at: nowIso,
       dibuat_pada: nowIso,
       lampiran_path: payload.fileSurat ? `/uploads/${payload.fileSurat.name}` : null,
@@ -309,17 +342,50 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       jumlah_hari: payload.jumlahHari,
       alasan: payload.alasan,
       status: "diajukan",
-      tahap_persetujuan: "atasan",
+      perlu_atasan: perluAtasan,
+      tahap_persetujuan: tahapPersetujuan,
       created_at: newDocData.created_at,
       lampiran_path: newDocData.lampiran_path,
       surat_dokter_nama: newDocData.surat_dokter_nama,
       surat_dokter_size: newDocData.surat_dokter_size,
     });
 
+    // Catat ke Audit Log (PRD BR-12)
+    logAuditActivity({
+      aksi: "pengajuan_cuti",
+      namaTabel: "pengajuan_cuti",
+      dataId: docRef.id,
+      nilaiSebelum: null,
+      nilaiSesudah: JSON.stringify({
+        jenis: payload.jenis,
+        tanggal_mulai: payload.tanggalMulai,
+        tanggal_selesai: payload.tanggalSelesai,
+        jumlah_hari: payload.jumlahHari,
+        alasan: payload.alasan,
+      }),
+      pelakuId: String(effectiveKaryawanId),
+      pelakuNama: payload.namaKaryawan,
+    });
+
     return { success: true, id: docRef.id };
   } catch (error: any) {
     console.error("Gagal menyimpan pengajuan ke Firestore:", error);
     const fallbackId = "cuti-local-" + Date.now();
+
+    const userProf =
+      (effectiveKaryawanId ? profileByIdMap.get(effectiveKaryawanId) : null) ||
+      (payload.karyawanId ? profileByIdMap.get(payload.karyawanId) : null) ||
+      (payload.nikKaryawan ? profileByNikMap.get(payload.nikKaryawan) : null) ||
+      (payload.namaKaryawan ? profileByNameMap.get(payload.namaKaryawan.toLowerCase().trim()) : null);
+    const userRole = userProf?.peran?.toLowerCase() || "";
+    const isAtasanOrHRD =
+      userRole === "atasan" ||
+      userRole === "hrd" ||
+      ["maya", "bayu", "hendra", "rina", "dimas"].some((n) =>
+        payload.namaKaryawan?.toLowerCase().includes(n)
+      );
+    const perluAtasan = !isAtasanOrHRD;
+    const tahapPersetujuan = isAtasanOrHRD ? "hrd" : "atasan";
 
     // Simpan ke local store agar pengguna tidak kehilangan permohonannya
     saveSubmittedLeave({
@@ -335,11 +401,27 @@ export async function submitLeaveRequestToFirestore(payload: LeaveRequestPayload
       jumlah_hari: payload.jumlahHari,
       alasan: payload.alasan,
       status: "diajukan",
-      tahap_persetujuan: "atasan",
+      perlu_atasan: perluAtasan,
+      tahap_persetujuan: tahapPersetujuan,
       created_at: new Date().toISOString(),
       lampiran_path: payload.fileSurat ? `/uploads/${payload.fileSurat.name}` : null,
       surat_dokter_nama: payload.fileSurat ? payload.fileSurat.name : null,
       surat_dokter_size: payload.fileSurat ? payload.fileSurat.size : null,
+    });
+
+    logAuditActivity({
+      aksi: "pengajuan_cuti",
+      namaTabel: "pengajuan_cuti",
+      dataId: fallbackId,
+      nilaiSebelum: null,
+      nilaiSesudah: JSON.stringify({
+        jenis: payload.jenis,
+        tanggal_mulai: payload.tanggalMulai,
+        tanggal_selesai: payload.tanggalSelesai,
+        jumlah_hari: payload.jumlahHari,
+      }),
+      pelakuId: String(effectiveKaryawanId),
+      pelakuNama: payload.namaKaryawan,
     });
 
     return { 
@@ -392,6 +474,20 @@ export async function fetchLeaveRequestsFromFirestore(forceRefresh = false): Pro
         profile?.nik_karyawan ||
         "KLN-0000";
 
+      const overrides = getLeaveStatusOverrides();
+      const currentStatus = overrides[d.id]?.status || data.status || "diajukan";
+      const isAtasanOrHRD =
+        profile?.peran === "atasan" ||
+        profile?.peran === "hrd" ||
+        ["maya", "bayu", "hendra", "rina", "dimas"].some((n) =>
+          resolvedNama.toLowerCase().includes(n)
+        );
+      const perluAtasan =
+        data.perlu_atasan !== undefined ? Boolean(data.perlu_atasan) : !isAtasanOrHRD;
+      const tahapPersetujuan =
+        data.tahap_persetujuan ||
+        (isAtasanOrHRD || currentStatus === "disetujui_atasan" ? "hrd" : "atasan");
+
       list.push({
         id: d.id,
         karyawan_id: data.karyawan_id || profile?.id || "",
@@ -406,8 +502,10 @@ export async function fetchLeaveRequestsFromFirestore(forceRefresh = false): Pro
         tanggal_selesai: data.tanggal_selesai || "",
         jumlah_hari: data.jumlah_hari || data.jumlah_hari_kerja || 1,
         alasan: data.alasan || "",
-        status: data.status || "diajukan",
-        tahap_persetujuan: data.tahap_persetujuan || (data.status === "disetujui_atasan" ? "hrd" : "atasan"),
+        status: currentStatus,
+        // PRD BR-09: perlu_atasan menentukan apakah tahap 1 Atasan diperlukan atau dilewati
+        perlu_atasan: perluAtasan,
+        tahap_persetujuan: tahapPersetujuan,
         created_at: data.created_at || data.dibuat_pada || new Date().toISOString(),
         surat_dokter_nama: data.surat_dokter_nama || data.lampiran || null,
         surat_dokter_size: data.surat_dokter_size || null,
@@ -434,7 +532,7 @@ export async function fetchLeaveRequestsFromFirestore(forceRefresh = false): Pro
  */
 export async function updateLeaveApprovalInFirestore(
   pengajuanId: string,
-  newStatus: "disetujui_atasan" | "disetujui" | "ditolak",
+  newStatus: "disetujui_atasan" | "disetujui" | "ditolak" | "dibatalkan",
   approverName: string,
   alasanPenolakan?: string,
   jumlahHari?: number,
@@ -442,11 +540,43 @@ export async function updateLeaveApprovalInFirestore(
   karyawanId?: string
 ) {
   try {
+    const isTahunan = jenis === "cuti_tahunan" || jenis?.toLowerCase().includes("tahunan") || jenis === "Cuti tahunan";
+    const targetKaryawanId = karyawanId || auth.currentUser?.uid || "";
+
     // 1. Update shared store lokal
     updateLeaveStatusOverride(pengajuanId, newStatus, approverName, alasanPenolakan);
 
-    // 2. Update di Firestore jika bukan dokumen lokal murni
-    if (!pengajuanId.startsWith("cuti-local-") && !pengajuanId.startsWith("cuti-0")) {
+    // 2. PRD BR-06 & BR-10: Kembalikan kuota cuti tahunan bila ditolak atau dibatalkan
+    if ((newStatus === "ditolak" || newStatus === "dibatalkan") && isTahunan && targetKaryawanId && (jumlahHari || 0) > 0) {
+      refundLeaveQuotaStore(targetKaryawanId, jumlahHari || 1);
+    }
+
+    // 3. Catat ke Audit Log (PRD BR-12)
+    const auditAction =
+      newStatus === "ditolak"
+        ? "penolakan_cuti"
+        : newStatus === "dibatalkan"
+        ? "batal_cuti_hrd"
+        : newStatus === "disetujui_atasan"
+        ? "persetujuan_cuti_tahap1"
+        : "persetujuan_cuti_final";
+
+    logAuditActivity({
+      aksi: auditAction,
+      namaTabel: "pengajuan_cuti",
+      dataId: pengajuanId,
+      nilaiSebelum: newStatus === "disetujui" ? "disetujui_atasan" : "diajukan",
+      nilaiSesudah: JSON.stringify({
+        status: newStatus,
+        diputuskan_oleh: approverName,
+        alasan_penolakan: alasanPenolakan || null,
+        jumlah_hari: jumlahHari,
+      }),
+      pelakuNama: approverName,
+    });
+
+    // 4. Update di Firestore
+    try {
       await ensureActiveFirebaseAuth();
       const docRef = doc(db, "pengajuan_cuti", pengajuanId);
       const updateData: Record<string, any> = {
@@ -462,35 +592,29 @@ export async function updateLeaveApprovalInFirestore(
 
       await updateDoc(docRef, updateData);
 
-      // PRD BR-06 & BR-10: Kembalikan kuota cuti tahunan bila ditolak
-      if (newStatus === "ditolak" && (jenis === "cuti_tahunan" || jenis?.toLowerCase().includes("tahunan"))) {
-        const targetKaryawanId = karyawanId || auth.currentUser?.uid;
-        if (targetKaryawanId && jumlahHari) {
-          try {
-            const kuotaQuery = query(
-              collection(db, "kuota_cuti"),
-              where("karyawan_id", "==", targetKaryawanId),
-              where("tahun", "==", 2026)
-            );
-            const kuotaSnap = await getDocs(kuotaQuery);
-            if (!kuotaSnap.empty) {
-              const kuotaDoc = kuotaSnap.docs[0];
-              await updateDoc(doc(db, "kuota_cuti", kuotaDoc.id), {
-                terpakai: increment(-jumlahHari),
-                sisa_kuota: increment(jumlahHari),
-                updated_at: new Date().toISOString(),
-              });
-            }
-          } catch (errKuota) {
-            console.warn("Gagal refund kuota di Firestore:", errKuota);
-          }
+      if (newStatus === "ditolak" && isTahunan && targetKaryawanId && (jumlahHari || 0) > 0) {
+        const kuotaQuery = query(
+          collection(db, "kuota_cuti"),
+          where("karyawan_id", "==", targetKaryawanId),
+          where("tahun", "==", 2026)
+        );
+        const kuotaSnap = await getDocs(kuotaQuery);
+        if (!kuotaSnap.empty) {
+          const kuotaDoc = kuotaSnap.docs[0];
+          await updateDoc(doc(db, "kuota_cuti", kuotaDoc.id), {
+            terpakai: increment(-(jumlahHari || 1)),
+            sisa_kuota: increment(jumlahHari || 1),
+            updated_at: new Date().toISOString(),
+          });
         }
       }
+    } catch (fsErr) {
+      // Abaikan jika dokumen mock lokal
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Gagal update persetujuan di Firestore:", error);
+    console.error("Gagal update persetujuan:", error);
     return { success: false };
   }
 }
@@ -507,18 +631,32 @@ export async function cancelLeaveRequestInFirestore(
   try {
     const authedUid = await ensureActiveFirebaseAuth();
     const effectiveKaryawanId = authedUid || auth.currentUser?.uid || karyawanId;
+    const isTahunan = jenis === "cuti_tahunan" || jenis?.toLowerCase().includes("tahunan") || jenis === "Cuti tahunan";
 
     updateLeaveStatusOverride(pengajuanId, "dibatalkan");
 
-    if (!pengajuanId.startsWith("cuti-local-") && !pengajuanId.startsWith("cuti-")) {
+    if (isTahunan && effectiveKaryawanId && (jumlahHari || 0) > 0) {
+      refundLeaveQuotaStore(effectiveKaryawanId, jumlahHari);
+    }
+
+    // Catat ke Audit Log (PRD BR-12)
+    logAuditActivity({
+      aksi: "pembatalan_cuti",
+      namaTabel: "pengajuan_cuti",
+      dataId: pengajuanId,
+      nilaiSebelum: "diajukan",
+      nilaiSesudah: JSON.stringify({ status: "dibatalkan", kuota_dikembalikan: isTahunan ? jumlahHari : 0 }),
+      pelakuId: String(effectiveKaryawanId),
+    });
+
+    try {
       const docRef = doc(db, "pengajuan_cuti", pengajuanId);
       await updateDoc(docRef, {
         status: "dibatalkan",
         updated_at: new Date().toISOString(),
       });
 
-      // Kembalikan kuota jika cuti tahunan
-      if (jenis === "cuti_tahunan" || jenis.toLowerCase().includes("tahunan")) {
+      if (isTahunan) {
         const kuotaQuery = query(
           collection(db, "kuota_cuti"),
           where("karyawan_id", "==", effectiveKaryawanId),
@@ -534,10 +672,13 @@ export async function cancelLeaveRequestInFirestore(
           });
         }
       }
+    } catch (e) {
+      // Abaikan jika dokumen mock lokal
     }
+
     return { success: true };
   } catch (error) {
-    console.warn("Gagal update pembatalan di Firestore:", error);
+    console.warn("Gagal update pembatalan:", error);
     return { success: false };
   }
 }

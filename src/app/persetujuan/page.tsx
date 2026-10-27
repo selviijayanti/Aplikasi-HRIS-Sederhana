@@ -1,20 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   getLeaveStatusOverrides,
   getSubmittedLeaves,
   SubmittedLeave,
+  refundLeaveQuotaStore,
+  calculateAccurateLeaveQuota,
 } from "@/lib/utils/leave-store";
 import {
   fetchLeaveRequestsFromFirestore,
   updateLeaveApprovalInFirestore,
 } from "@/lib/firebase/leave-service";
+import { logAuditActivity } from "@/lib/firebase/audit-service";
 import { sendEmailNotification } from "@/lib/email/email-service";
 import profilesData from "../../../data/seeds/profiles.json";
 import divisiData from "../../../data/seeds/divisi.json";
+import kuotaCutiData from "../../../data/seeds/kuota_cuti.json";
 import "./persetujuan.css";
 
 interface ApprovalItem {
@@ -84,7 +89,7 @@ const EMPLOYEE_PROFILES_LOOKUP: Record<string, { nama: string; nik: string; jaba
 
 const DEFAULT_QUEUE: ApprovalItem[] = [
   {
-    id: "cuti-01",
+    id: "feaf39cf-e72b-5830-bb52-efe413bc1c55",
     karyawan_id: "3ce404ad-885e-51ef-bbf7-10345f2c2f04",
     divisi_id: "867481d0-6289-54a1-87db-47bb81db15ef",
     nama: "Andi Wijaya",
@@ -105,46 +110,15 @@ const DEFAULT_QUEUE: ApprovalItem[] = [
     kuota_sisa: 5,
     status_kerja: "Karyawan Tetap (Masuk 1 Jun 2021)",
     alasan: "Keperluan keluarga di Yogyakarta.",
+    perlu_atasan: true,
+    tahap_persetujuan: "atasan",
+    status: "diajukan",
     lampiran: null,
     tanggal_pengajuan: "13 Okt 2026, 09.12 WIB",
     tanggal_pengajuan_singkat: "13 Okt 2026",
     rekan_cuti: [
       { nama: "Yoga Permana", tanggal: "19 Okt - 20 Okt 2026", status: "disetujui" },
       { nama: "Putri Lestari", tanggal: "9 Nov - 10 Nov 2026", status: "disetujui_atasan" },
-    ],
-  },
-  {
-    id: "cuti-04",
-    karyawan_id: "p1fyCjgpnAPCygmfpmzhVhl3zEQ2",
-    divisi_id: "867481d0-6289-54a1-87db-47bb81db15ef",
-    nama: "Larasati Dewi",
-    nik: "KLN-0010",
-    jabatan: "Account Executive",
-    divisi: "Penjualan",
-    atasan_nama: "Maya Anggraini",
-    atasan_jabatan: "Manajer Penjualan",
-    jenis: "Sakit",
-    tanggal_mulai: "2026-10-19",
-    tanggal_selesai: "2026-10-21",
-    tanggal_singkat: "19 - 21 Okt 2026",
-    tanggal_teks: "Senin, 19 Okt 2026 s/d Rabu, 21 Okt 2026",
-    lama: "3 Hari Kerja",
-    jumlah_hari: 3,
-    kuota_jatah: 12,
-    kuota_terpakai: 4,
-    kuota_sisa: 8,
-    status_kerja: "Karyawan Tetap (Masuk 15 Jan 2022)",
-    alasan: "Demam berdarah dan menjalani rawat inap atas anjuran dokter spesialis.",
-    lampiran: {
-      nama: "Surat_Keterangan_Dokter_Klinik_Medika.pdf",
-      ukuran: "1.2 MB",
-      tipe: "Dokumen Medis",
-    },
-    tanggal_pengajuan: "18 Okt 2026, 14.30 WIB",
-    tanggal_pengajuan_singkat: "18 Okt 2026",
-    rekan_cuti: [
-      { nama: "Andi Wijaya", tanggal: "26 Okt - 28 Okt 2026", status: "diajukan" },
-      { nama: "Yoga Permana", tanggal: "19 Okt - 20 Okt 2026", status: "disetujui" },
     ],
   },
   {
@@ -169,12 +143,109 @@ const DEFAULT_QUEUE: ApprovalItem[] = [
     kuota_sisa: 10,
     status_kerja: "Karyawan Kontrak (Masuk 1 Agu 2023)",
     alasan: "Pengurusan dokumen kependudukan keluarga di instansi terkait.",
+    perlu_atasan: true,
+    tahap_persetujuan: "atasan",
+    status: "diajukan",
     lampiran: null,
     tanggal_pengajuan: "15 Okt 2026, 11.05 WIB",
     tanggal_pengajuan_singkat: "15 Okt 2026",
     rekan_cuti: [
       { nama: "Andi Wijaya", tanggal: "26 Okt - 28 Okt 2026", status: "diajukan" },
     ],
+  },
+  {
+    id: "cuti-maya-01",
+    karyawan_id: "9e156b1b-7370-5e67-9dd3-e03340156757",
+    divisi_id: "867481d0-6289-54a1-87db-47bb81db15ef",
+    nama: "Maya Anggraini",
+    nik: "KLN-0008",
+    jabatan: "Manajer Penjualan",
+    divisi: "Penjualan",
+    atasan_nama: "Rina Kusumawardani",
+    atasan_jabatan: "Kepala HRD",
+    jenis: "Cuti tahunan",
+    tanggal_mulai: "2026-11-16",
+    tanggal_selesai: "2026-11-17",
+    tanggal_singkat: "16 - 17 Nov 2026",
+    tanggal_teks: "Senin, 16 Nov 2026 s/d Selasa, 17 Nov 2026",
+    lama: "2 Hari Kerja",
+    jumlah_hari: 2,
+    kuota_jatah: 12,
+    kuota_terpakai: 2,
+    kuota_sisa: 10,
+    status_kerja: "Karyawan Tetap",
+    alasan: "Keperluan keluarga",
+    perlu_atasan: false,
+    tahap_persetujuan: "hrd",
+    status: "diajukan",
+    lampiran: null,
+    tanggal_pengajuan: "19 Okt 2026, 09.00 WIB",
+    tanggal_pengajuan_singkat: "19 Okt 2026",
+    rekan_cuti: [],
+  },
+  {
+    id: "42818f09-cf70-54a4-bf0d-92da9a8d6d81",
+    karyawan_id: "8db8c644-85b2-5327-97fa-5fa1cfee7801",
+    divisi_id: "a6af4e8a-1b1b-5610-9e53-db2fdaf38100",
+    nama: "Dimas Pratama",
+    nik: "KLN-0002",
+    jabatan: "Staf HR",
+    divisi: "Human Resources",
+    atasan_nama: "Rina Kusumawardani",
+    atasan_jabatan: "Kepala HRD",
+    jenis: "Cuti tahunan",
+    tanggal_mulai: "2026-10-22",
+    tanggal_selesai: "2026-10-23",
+    tanggal_singkat: "22 - 23 Okt 2026",
+    tanggal_teks: "Kamis, 22 Okt 2026 s/d Jumat, 23 Okt 2026",
+    lama: "1 Hari Kerja",
+    jumlah_hari: 1,
+    kuota_jatah: 12,
+    kuota_terpakai: 1,
+    kuota_sisa: 11,
+    status_kerja: "Karyawan Tetap (Masuk 10 Feb 2020)",
+    alasan: "Libur panjang bersama keluarga",
+    perlu_atasan: false,
+    tahap_persetujuan: "hrd",
+    status: "diajukan",
+    lampiran: null,
+    tanggal_pengajuan: "14 Okt 2026, 09.12 WIB",
+    tanggal_pengajuan_singkat: "14 Okt 2026",
+    rekan_cuti: [],
+  },
+  {
+    id: "4e472e78-3353-501e-a140-249c525f9530",
+    karyawan_id: "1c5a8b5d-7360-584f-85bf-98b455254054",
+    divisi_id: "400c86ae-d2db-5185-b2d3-db5f60a08649",
+    nama: "Larasati Dewi",
+    nik: "KLN-0010",
+    jabatan: "Staf Akuntansi",
+    divisi: "Keuangan",
+    atasan_nama: "Hendra Gunawan",
+    atasan_jabatan: "Manajer Keuangan",
+    jenis: "Sakit",
+    tanggal_mulai: "2026-10-14",
+    tanggal_selesai: "2026-10-15",
+    tanggal_singkat: "14 - 15 Okt 2026",
+    tanggal_teks: "Rabu, 14 Okt 2026 s/d Kamis, 15 Okt 2026",
+    lama: "2 Hari Kerja",
+    jumlah_hari: 2,
+    kuota_jatah: 12,
+    kuota_terpakai: 4,
+    kuota_sisa: 8,
+    status_kerja: "Karyawan Tetap (Masuk 13 Sep 2021)",
+    alasan: "Gejala tifus, rawat jalan.",
+    perlu_atasan: true,
+    tahap_persetujuan: "atasan",
+    status: "diajukan",
+    lampiran: {
+      nama: "Surat_Keterangan_Dokter_Klinik_Medika.pdf",
+      ukuran: "1.2 MB",
+      tipe: "Dokumen Medis",
+    },
+    tanggal_pengajuan: "14 Okt 2026, 09.12 WIB",
+    tanggal_pengajuan_singkat: "14 Okt 2026",
+    rekan_cuti: [],
   },
   {
     id: "cuti-06",
@@ -194,10 +265,13 @@ const DEFAULT_QUEUE: ApprovalItem[] = [
     lama: "2 Hari Kerja",
     jumlah_hari: 2,
     kuota_jatah: 12,
-    kuota_terpakai: 3,
-    kuota_sisa: 9,
+    kuota_terpakai: 11,
+    kuota_sisa: 1,
     status_kerja: "Karyawan Tetap (Masuk 14 Sep 2020)",
     alasan: "Menghadiri pernikahan adik kandung di Bandung.",
+    perlu_atasan: true,
+    tahap_persetujuan: "atasan",
+    status: "diajukan",
     lampiran: null,
     tanggal_pengajuan: "17 Okt 2026, 08.45 WIB",
     tanggal_pengajuan_singkat: "17 Okt 2026",
@@ -257,6 +331,20 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
   const tMulai = item.tanggal_mulai || "2026-10-26";
   const tSelesai = item.tanggal_selesai || tMulai;
 
+  // Lookup Kuota Pemohon Dinamis Berdasarkan Tahun 2026 (PRD BR-04 & BR-06)
+  const accurateQuota = calculateAccurateLeaveQuota(
+    {
+      id: item.karyawan_id,
+      seed_id: profile?.id,
+      nik_karyawan: finalNik,
+      nama_lengkap: finalNama,
+    },
+    2026
+  );
+  const kuotaJatah = accurateQuota.jatahHari;
+  const kuotaTerpakai = accurateQuota.terpakai;
+  const kuotaSisa = accurateQuota.sisa;
+
   return {
     id: item.id,
     karyawan_id: item.karyawan_id,
@@ -274,9 +362,9 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
     tanggal_teks: `${tMulai} s/d ${tSelesai}`,
     lama: `${item.jumlah_hari || 1} Hari Kerja`,
     jumlah_hari: item.jumlah_hari || 1,
-    kuota_jatah: 12,
-    kuota_terpakai: 7,
-    kuota_sisa: 5,
+    kuota_jatah: kuotaJatah,
+    kuota_terpakai: kuotaTerpakai,
+    kuota_sisa: kuotaSisa,
     status_kerja: finalStatusKerja,
     alasan: item.alasan || "Keperluan mendesak.",
     lampiran: item.surat_dokter_nama
@@ -303,7 +391,30 @@ function convertSubmittedToApprovalItem(item: SubmittedLeave): ApprovalItem {
       { nama: "Yoga Permana", tanggal: "19 Okt - 20 Okt 2026", status: "disetujui" },
     ],
     status: item.status,
-    tahap_persetujuan: item.tahap_persetujuan,
+    perlu_atasan: item.perlu_atasan !== undefined ? item.perlu_atasan : !(
+      profile?.peran === "atasan" ||
+      profile?.peran === "hrd" ||
+      finalJabatan.toLowerCase().includes("manajer") ||
+      finalJabatan.toLowerCase().includes("kepala") ||
+      finalNama.toLowerCase().includes("maya") ||
+      finalNama.toLowerCase().includes("bayu") ||
+      finalNama.toLowerCase().includes("rina") ||
+      finalNama.toLowerCase().includes("dimas") ||
+      finalNama.toLowerCase().includes("hendra")
+    ),
+    tahap_persetujuan: item.tahap_persetujuan || (
+      (profile?.peran === "atasan" ||
+      profile?.peran === "hrd" ||
+      finalJabatan.toLowerCase().includes("manajer") ||
+      finalJabatan.toLowerCase().includes("kepala") ||
+      finalNama.toLowerCase().includes("maya") ||
+      finalNama.toLowerCase().includes("bayu") ||
+      finalNama.toLowerCase().includes("rina") ||
+      finalNama.toLowerCase().includes("dimas") ||
+      finalNama.toLowerCase().includes("hendra"))
+        ? "hrd"
+        : "atasan"
+    ),
   };
 }
 
@@ -318,7 +429,19 @@ const formatShortId = (rawId: string) => {
 };
 
 export default function PersetujuanPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // Guard: Hanya peran Atasan & HRD yang boleh mengakses Persetujuan (PRD BR-09, BR-11 & NFR-3)
+  useEffect(() => {
+    if (!loading && user) {
+      const role = user.peran?.toLowerCase();
+      if (role !== "atasan" && role !== "hrd") {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, loading, router]);
+
   const [copiedId, setCopiedId] = useState(false);
 
   const handleCopyId = (fullId: string) => {
@@ -328,15 +451,18 @@ export default function PersetujuanPage() {
       setTimeout(() => setCopiedId(false), 2000);
     }
   };
-  const [selectedId, setSelectedId] = useState("cuti-01");
+  const [selectedId, setSelectedId] = useState("feaf39cf-e72b-5830-bb52-efe413bc1c55");
   const [statusMap, setStatusMap] = useState<Record<string, "diajukan" | "disetujui_atasan" | "disetujui" | "ditolak" | "dibatalkan">>({
+    "feaf39cf-e72b-5830-bb52-efe413bc1c55": "diajukan",
     "cuti-01": "diajukan",
-    "cuti-04": "diajukan",
     "cuti-05": "diajukan",
+    "cuti-maya-01": "diajukan",
+    "42818f09-cf70-54a4-bf0d-92da9a8d6d81": "diajukan",
+    "4e472e78-3353-501e-a140-249c525f9530": "diajukan",
     "cuti-06": "diajukan",
   });
   const [overridesRecord, setOverridesRecord] = useState<Record<string, any>>({});
-  const [allQueue, setAllQueue] = useState<ApprovalItem[]>(DEFAULT_QUEUE);
+  const [allQueue, setAllQueue] = useState<ApprovalItem[]>([]);
   const [alasanPenolakan, setAlasanPenolakan] = useState("");
   const [alertError, setAlertError] = useState<string | null>(null);
   const [alertSuccess, setAlertSuccess] = useState<string | null>(null);
@@ -694,7 +820,7 @@ export default function PersetujuanPage() {
   const handleReject = async () => {
     setAlertError(null);
     if (alasanPenolakan.trim().length < 10) {
-      setAlertError("Alasan penolakan bersifat wajib dan harus minimal 10 karakter (PRD BR-09).");
+      setAlertError("Alasan penolakan bersifat wajib dan harus minimal 10 karakter.");
       return;
     }
 
@@ -766,6 +892,119 @@ export default function PersetujuanPage() {
     }).catch(() => {});
   };
 
+  // State Modal Pembatalan Kustom oleh HRD (Menggantikan window.prompt primitif)
+  const [cancelTargetItem, setCancelTargetItem] = useState<ApprovalItem | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState("");
+  const [cancelModalError, setCancelModalError] = useState<string | null>(null);
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+
+  // Buka Modal Pembatalan HRD
+  const openHrdCancelModal = (item: ApprovalItem) => {
+    setCancelTargetItem(item);
+    setCancelReasonInput("");
+    setCancelModalError(null);
+  };
+
+  // Handler Konfirmasi Pembatalan oleh HRD (Modal Dialog Modern)
+  const handleConfirmHrdCancel = async () => {
+    if (!cancelTargetItem) return;
+    const cleanReason = cancelReasonInput.trim();
+    if (cleanReason.length < 5) {
+      setCancelModalError("Alasan pembatalan wajib diisi minimal 5 karakter.");
+      return;
+    }
+
+    setIsSubmittingCancel(true);
+    setCancelModalError(null);
+
+    try {
+      const cancellerName = `${user?.nama_lengkap || "Rina Kusumawardani"} (Kepala HRD)`;
+
+      // 1. Update status di Firestore dan Overrides
+      await updateLeaveApprovalInFirestore(
+        cancelTargetItem.id,
+        "dibatalkan",
+        cancellerName,
+        cleanReason,
+        cancelTargetItem.jumlah_hari,
+        cancelTargetItem.jenis,
+        cancelTargetItem.karyawan_id
+      );
+
+      // 2. Kembalikan kuota cuti tahunan utuh jika cuti tahunan
+      if (cancelTargetItem.jenis === "Cuti tahunan") {
+        refundLeaveQuotaStore(cancelTargetItem.karyawan_id || cancelTargetItem.nik, cancelTargetItem.jumlah_hari);
+      }
+
+      // 3. Catat ke audit log
+      logAuditActivity({
+        pelakuId: user?.id || "hrd-rina",
+        pelakuNama: user?.nama_lengkap || "Rina Kusumawardani",
+        aksi: "batal_cuti_hrd",
+        namaTabel: "pengajuan_cuti",
+        dataId: cancelTargetItem.id,
+        nilaiSebelum: JSON.stringify({ status: cancelTargetItem.status || "disetujui" }),
+        nilaiSesudah: JSON.stringify({
+          status: "dibatalkan",
+          dibatalkan_oleh: cancellerName,
+          alasan: cleanReason,
+          jumlah_hari: cancelTargetItem.jumlah_hari,
+        }),
+      });
+
+      // 4. Update local states
+      setStatusMap((prev) => ({ ...prev, [cancelTargetItem.id]: "dibatalkan" }));
+      setOverridesRecord((prev) => ({
+        ...prev,
+        [cancelTargetItem.id]: {
+          status: "dibatalkan",
+          approvedBy: cancellerName,
+          approvedAt: new Date().toISOString(),
+          alasanPenolakan: cleanReason,
+          catatan: cleanReason,
+        },
+      }));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
+
+      // Notifikasi email
+      const targetEmail =
+        (cancelTargetItem as any).email ||
+        (cancelTargetItem.nama ? `${cancelTargetItem.nama.toLowerCase().replace(/\s+/g, ".")}@karsalintas.test` : "karyawan@karsalintas.test");
+
+      sendEmailNotification({
+        type: "LEAVE_STATUS_UPDATED",
+        toEmail: targetEmail,
+        toName: cancelTargetItem.nama || "Karyawan",
+        subject: `[KarsaHR] Pembatalan Pengajuan: ${cancelTargetItem.jenis}`,
+        title: "Permohonan Cuti Dibatalkan oleh HRD",
+        message: `Permohonan cuti/izin Anda yang sebelumnya telah disetujui telah dibatalkan oleh HRD dengan alasan: "${cleanReason}". Kuota cuti tahunan Anda telah dikembalikan secara utuh ke saldo aktif.`,
+        badgeText: "Dibatalkan HRD",
+        badgeColor: "#e11d48",
+        summaryItems: [
+          { label: "Jenis Pengajuan", value: cancelTargetItem.jenis },
+          { label: "Durasi", value: `${cancelTargetItem.jumlah_hari} Hari Kerja` },
+          { label: "Status Terkini", value: "Dibatalkan oleh HRD" },
+          { label: "Alasan Pembatalan", value: cleanReason },
+        ],
+        actionPath: "/cuti",
+        actionText: "Lihat Status di KarsaHR",
+      }).catch(() => {});
+
+      setAlertSuccess(
+        `Pengajuan ${cancelTargetItem.jenis} atas nama ${cancelTargetItem.nama} berhasil dibatalkan oleh HRD. Kuota cuti telah dikembalikan.`
+      );
+      setCancelTargetItem(null);
+    } catch (err) {
+      console.error("Gagal membatalkan pengajuan oleh HRD:", err);
+      setCancelModalError("Terjadi kesalahan saat memproses pembatalan pengajuan oleh HRD.");
+    } finally {
+      setIsSubmittingCancel(false);
+    }
+  };
+
   const renderStatusBadge = (st: string) => {
     switch (st) {
       case "diajukan":
@@ -799,11 +1038,38 @@ export default function PersetujuanPage() {
           </span>
         );
       default:
-        return null;
+        return (
+          <span className="badge-status-pill">
+            <span className="badge-dot-indicator" /> {st}
+          </span>
+        );
     }
   };
 
-  const kuotaPercentage = Math.round((activeItem.kuota_terpakai / activeItem.kuota_jatah) * 100);
+  // Hitung saldo kuota pemohon secara dinamis (PRD BR-06 & BR-10: Penolakan/pembatalan mengembalikan saldo kuota)
+  const dynamicQuota = useMemo(() => {
+    const isTahunan = activeItem.jenis === "Cuti tahunan";
+    const jatah = activeItem.kuota_jatah || 12;
+    let terpakai = activeItem.kuota_terpakai || 0;
+
+    // Jika permohonan berstatus ditolak atau dibatalkan, kurangi dari terpakai
+    if ((currentStatus === "ditolak" || currentStatus === "dibatalkan") && isTahunan) {
+      terpakai = Math.max(0, terpakai - (activeItem.jumlah_hari || 0));
+    }
+    const sisa = Math.max(0, jatah - terpakai);
+    return {
+      jatah,
+      terpakai,
+      sisa,
+      percentage: Math.min(100, Math.round((terpakai / jatah) * 100)),
+    };
+  }, [activeItem, currentStatus]);
+
+  const kuotaPercentage = dynamicQuota.percentage;
+
+  if (loading || !user || (user.peran?.toLowerCase() !== "atasan" && user.peran?.toLowerCase() !== "hrd")) {
+    return null;
+  }
 
   return (
     <>
@@ -1091,7 +1357,7 @@ export default function PersetujuanPage() {
                     rows={3}
                     value={alasanPenolakan}
                     onChange={(e) => setAlasanPenolakan(e.target.value)}
-                    placeholder="Tulis catatan persetujuan atau alasan penolakan (wajib minimal 10 karakter bila menolak - BR-09)..."
+                    placeholder="Tulis catatan persetujuan atau alasan penolakan (wajib minimal 10 karakter bila menolak)..."
                     className="decision-textarea-input"
                   />
                 </div>
@@ -1116,7 +1382,9 @@ export default function PersetujuanPage() {
                   <p className="decision-legal-footnote">
                     {user?.peran === "atasan"
                       ? "Menyetujui pengajuan ini akan meneruskan berkas ke HRD untuk persetujuan akhir."
-                      : "Menyetujui pengajuan ini akan otomatis memotong saldo cuti tahunan pemohon."}
+                      : activeItem.jenis === "Cuti tahunan"
+                      ? "Menyetujui pengajuan ini akan otomatis memotong saldo cuti tahunan pemohon."
+                      : "Pengajuan izin/sakit tidak memotong saldo cuti tahunan pemohon."}
                   </p>
                 </div>
               </div>
@@ -1169,7 +1437,13 @@ export default function PersetujuanPage() {
                 <div className="history-metadata-grid">
                   <div className="history-metadata-item">
                     <span className="history-meta-label">
-                      {currentStatus === "ditolak" ? "Ditolak Oleh" : "Disetujui Oleh"}
+                      {currentStatus === "ditolak"
+                        ? "Ditolak Oleh"
+                        : currentStatus === "diajukan"
+                        ? "Status Verifikasi"
+                        : currentStatus === "dibatalkan"
+                        ? "Dibatalkan Oleh"
+                        : "Disetujui Oleh"}
                     </span>
                     <span className="history-meta-value">
                       {overrideInfo?.approvedBy ||
@@ -1177,9 +1451,11 @@ export default function PersetujuanPage() {
                           ? "Rina Kusumawardani (Kepala HRD)"
                           : currentStatus === "disetujui_atasan"
                           ? `${activeItem.atasan_nama} (${activeItem.atasan_jabatan})`
+                          : currentStatus === "diajukan"
+                          ? "Belum diproses (Menunggu persetujuan)"
                           : currentStatus === "dibatalkan"
                           ? `${activeItem.nama} (Pemohon)`
-                          : "Rina Kusumawardani (Kepala HRD)")}
+                          : "-")}
                     </span>
                   </div>
 
@@ -1187,6 +1463,8 @@ export default function PersetujuanPage() {
                     <span className="history-meta-label">
                       {currentStatus === "ditolak"
                         ? "Waktu Penolakan"
+                        : currentStatus === "diajukan"
+                        ? "Waktu Pengajuan"
                         : currentStatus === "dibatalkan"
                         ? "Waktu Pembatalan"
                         : "Waktu Persetujuan"}
@@ -1211,20 +1489,48 @@ export default function PersetujuanPage() {
                     <div className="history-note-box">
                       {overrideInfo?.alasanPenolakan ||
                         overrideInfo?.catatan ||
-                        "Tidak ada catatan tambahan."}
+                        (currentStatus === "diajukan" ? "Menunggu tindakan atasan / HRD." : "Tidak ada catatan tambahan.")}
                     </div>
                   </div>
                 </div>
 
+                {/* Tombol Pembatalan Pengajuan oleh HRD Sebelum Tanggal Mulai (PRD BR-10) */}
+                {user?.peran === "hrd" && (currentStatus === "disetujui" || currentStatus === "disetujui_atasan") && (
+                  <div style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <div>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1e293b" }}>
+                        Kewenangan Pembatalan HRD:
+                      </span>
+                      <p style={{ fontSize: "0.6875rem", color: "#64748b", margin: "0.15rem 0 0 0" }}>
+                        HRD dapat membatalkan pengajuan yang sudah disetujui sebelum tanggal mulai. Kuota cuti tahunan akan dikembalikan utuh.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openHrdCancelModal(activeItem)}
+                      className="btn-enterprise-reject"
+                      style={{ padding: "0.4rem 0.85rem", fontSize: "0.75rem", backgroundColor: "#fff1f2", color: "#e11d48", borderColor: "#fecdd3", cursor: "pointer" }}
+                    >
+                      ✕ Batalkan Pengajuan (HRD)
+                    </button>
+                  </div>
+                )}
+
                 <p className="history-card-footnote">
                   {currentStatus === "disetujui"
-                    ? "Saldo cuti tahunan pemohon telah disesuaikan secara otomatis."
+                    ? (activeItem.jenis === "Cuti tahunan"
+                        ? "Saldo cuti tahunan pemohon telah disesuaikan secara otomatis."
+                        : "Permohonan telah disetujui penuh oleh HRD.")
                     : currentStatus === "disetujui_atasan"
                     ? "Berkas menunggu verifikasi dan persetujuan tahap akhir dari Kepala HRD."
                     : currentStatus === "diajukan"
-                    ? `Berkas masih menunggu verifikasi dan persetujuan tahap 1 dari Atasan Divisi (${activeItem.atasan_nama}) sebelum diteruskan ke Kepala HRD.`
+                    ? (activeItem.perlu_atasan === false
+                        ? "Berkas menunggu persetujuan langsung dari Kepala HRD (Tahap Atasan dilewati)."
+                        : `Berkas masih menunggu verifikasi dan persetujuan tahap 1 dari Atasan Divisi (${activeItem.atasan_nama}) sebelum diteruskan ke Kepala HRD.`)
                     : currentStatus === "ditolak"
-                    ? "Permohonan tidak disetujui. Saldo cuti tahunan pemohon tetap utuh."
+                    ? (activeItem.jenis === "Cuti tahunan"
+                        ? `Permohonan ditolak. Kuota cuti tahunan pemohon sebanyak ${activeItem.jumlah_hari} hari telah dikembalikan utuh (Sisa ${dynamicQuota.sisa} hari).`
+                        : "Permohonan tidak disetujui.")
                     : "Permohonan telah dibatalkan secara mandiri oleh pemohon sebelum proses finalisasi."}
                 </p>
               </div>
@@ -1366,31 +1672,31 @@ export default function PersetujuanPage() {
                   <div className="quota-tri-grid">
                     <div className="quota-metric-tile">
                       <span className="quota-tile-caption">Jatah</span>
-                      <span className="quota-tile-number">{activeItem.kuota_jatah}</span>
+                      <span className="quota-tile-number">{dynamicQuota.jatah}</span>
                     </div>
                     <div className="quota-metric-tile">
                       <span className="quota-tile-caption">Terpakai</span>
-                      <span className="quota-tile-number amber">{activeItem.kuota_terpakai}</span>
+                      <span className="quota-tile-number amber">{dynamicQuota.terpakai}</span>
                     </div>
                     <div className="quota-metric-tile highlight">
                       <span className="quota-tile-caption" style={{ color: "#1e40af", fontWeight: 600 }}>Sisa Kuota</span>
-                      <span className="quota-tile-number blue">{activeItem.kuota_sisa}</span>
+                      <span className="quota-tile-number blue">{dynamicQuota.sisa}</span>
                     </div>
                   </div>
 
                   <div>
                     <div className="progress-legend-row">
-                      <span>Terpakai: {activeItem.kuota_terpakai} Hari</span>
-                      <span>Sisa: {activeItem.kuota_sisa} Hari</span>
+                      <span>Terpakai: {dynamicQuota.terpakai} Hari</span>
+                      <span>Sisa: {dynamicQuota.sisa} Hari</span>
                     </div>
                     <div className="progress-track-rail">
                       <div
                         className="progress-fill-bar"
-                        style={{ width: `${kuotaPercentage}%` }}
+                        style={{ width: `${dynamicQuota.percentage}%` }}
                       ></div>
                     </div>
                     <p className="quota-note-caption">
-                      Tersisa <strong>{activeItem.kuota_sisa}</strong> dari total <strong>{activeItem.kuota_jatah}</strong> hari jatah cuti tahunan berjalan.
+                      Tersisa <strong>{dynamicQuota.sisa}</strong> dari total <strong>{dynamicQuota.jatah}</strong> hari jatah cuti tahunan berjalan.
                     </p>
                   </div>
                 </div>
@@ -1409,6 +1715,8 @@ export default function PersetujuanPage() {
                         ? "Tahap 1 Selesai"
                         : currentStatus === "ditolak"
                         ? "Ditolak"
+                        : activeItem.perlu_atasan === false
+                        ? "Tahap HRD (Bypass)"
                         : "Tahap 1"}
                     </span>
                   </div>
@@ -1432,7 +1740,9 @@ export default function PersetujuanPage() {
                     {/* Step 2: Atasan Divisi */}
                     <div
                       className={`stepper-node ${
-                        currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
+                        activeItem.perlu_atasan === false
+                          ? "done"
+                          : currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
                           ? "done"
                           : currentStatus === "ditolak"
                           ? "failed"
@@ -1440,7 +1750,7 @@ export default function PersetujuanPage() {
                       }`}
                     >
                       <div className="stepper-circle">
-                        {currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
+                        {activeItem.perlu_atasan === false || currentStatus === "disetujui_atasan" || currentStatus === "disetujui"
                           ? "✓"
                           : currentStatus === "ditolak"
                           ? "✕"
@@ -1448,14 +1758,18 @@ export default function PersetujuanPage() {
                       </div>
                       <div className="stepper-text-col">
                         <h4 className="stepper-main-text">
-                          {currentStatus === "diajukan"
+                          {activeItem.perlu_atasan === false
+                            ? "Tahap 1 Dilewati (Pemohon Atasan / HRD)"
+                            : currentStatus === "diajukan"
                             ? `Menunggu Verifikasi: ${activeItem.atasan_nama}`
                             : currentStatus === "ditolak"
                             ? `Ditolak oleh Atasan (${activeItem.atasan_nama})`
                             : `Disetujui oleh Atasan (${activeItem.atasan_nama})`}
                         </h4>
                         <p className="stepper-sub-text">
-                          Tahap 1 • Verifikasi Atasan Divisi ({activeItem.atasan_jabatan})
+                          {activeItem.perlu_atasan === false
+                            ? "Pengajuan langsung diproses oleh HRD tanpa persetujuan atasan divisi."
+                            : `Tahap 1 • Verifikasi Atasan Divisi (${activeItem.atasan_jabatan})`}
                         </p>
                       </div>
                     </div>
@@ -1465,7 +1779,7 @@ export default function PersetujuanPage() {
                       className={`stepper-node ${
                         currentStatus === "disetujui"
                           ? "done"
-                          : currentStatus === "disetujui_atasan"
+                          : currentStatus === "disetujui_atasan" || (currentStatus === "diajukan" && activeItem.perlu_atasan === false)
                           ? "current"
                           : ""
                       }`}
@@ -1477,6 +1791,8 @@ export default function PersetujuanPage() {
                         <h4 className="stepper-main-text">
                           {currentStatus === "disetujui"
                             ? "Disetujui Final oleh HRD (Rina Kusumawardani)"
+                            : activeItem.perlu_atasan === false && currentStatus === "diajukan"
+                            ? "Menunggu Keputusan Akhir HRD (Tahap 1 Dilewati)"
                             : "Persetujuan Tahap Akhir Kepala HRD"}
                         </h4>
                         <p className="stepper-sub-text">
@@ -1528,6 +1844,206 @@ export default function PersetujuanPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Dialog Kustom Pembatalan Pengajuan oleh HRD (Enterprise Modern) */}
+      {cancelTargetItem && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "1rem",
+            animation: "fadeIn 0.15s ease-out",
+          }}
+          onClick={() => !isSubmittingCancel && setCancelTargetItem(null)}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "12px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+              width: "100%",
+              maxWidth: "520px",
+              padding: "1.75rem",
+              border: "1px solid #e2e8f0",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div
+                  style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fee2e2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#dc2626",
+                    fontSize: "1.25rem",
+                    flexShrink: 0,
+                  }}
+                >
+                  ⚠️
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                    Konfirmasi Pembatalan Pengajuan
+                  </h3>
+                  <p style={{ fontSize: "0.8125rem", color: "#64748b", margin: "0.2rem 0 0 0" }}>
+                    Kewenangan HRD untuk membatalkan permohonan yang telah disetujui.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancelTargetItem(null)}
+                disabled={isSubmittingCancel}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "1.25rem",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                  lineHeight: 1,
+                  padding: "0.25rem",
+                }}
+                title="Tutup"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+                padding: "0.875rem 1rem",
+                marginBottom: "1.25rem",
+                fontSize: "0.8125rem",
+              }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: "0.45rem", alignItems: "center" }}>
+                <span style={{ color: "#64748b" }}>Karyawan</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelTargetItem.nama} ({cancelTargetItem.nik})</span>
+
+                <span style={{ color: "#64748b" }}>Jenis & Durasi</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelTargetItem.jenis} · {cancelTargetItem.jumlah_hari} Hari Kerja</span>
+
+                <span style={{ color: "#64748b" }}>Periode</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelTargetItem.tanggal_mulai} s/d {cancelTargetItem.tanggal_selesai}</span>
+
+                <span style={{ color: "#64748b" }}>Dampak Kuota</span>
+                <span style={{ color: "#166534", fontWeight: 600 }}>
+                  ✓ Saldo {cancelTargetItem.jumlah_hari} hari kerja akan otomatis dikembalikan
+                </span>
+              </div>
+            </div>
+
+            {cancelModalError && (
+              <div
+                style={{
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#991b1b",
+                  borderRadius: "6px",
+                  padding: "0.6rem 0.85rem",
+                  fontSize: "0.8125rem",
+                  marginBottom: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <span>✕</span>
+                <span>{cancelModalError}</span>
+              </div>
+            )}
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "#334155",
+                  marginBottom: "0.4rem",
+                }}
+              >
+                Alasan Pembatalan <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={cancelReasonInput}
+                onChange={(e) => setCancelReasonInput(e.target.value)}
+                placeholder="Tuliskan alasan pembatalan resmi (minimal 5 karakter), contoh: Perubahan jadwal operasional mendesak..."
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.75rem",
+                  fontSize: "0.875rem",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                  outline: "none",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                }}
+                disabled={isSubmittingCancel}
+              />
+              <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: "0.25rem" }}>
+                Minimal 5 karakter. Alasan ini akan tercatat di log audit dan dikirimkan ke karyawan.
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                type="button"
+                onClick={() => setCancelTargetItem(null)}
+                disabled={isSubmittingCancel}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  color: "#475569",
+                  backgroundColor: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmHrdCancel}
+                disabled={isSubmittingCancel}
+                style={{
+                  padding: "0.5rem 1.25rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "#ffffff",
+                  backgroundColor: "#dc2626",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: isSubmittingCancel ? "not-allowed" : "pointer",
+                  opacity: isSubmittingCancel ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+              >
+                {isSubmittingCancel ? "Memproses..." : "Batalkan Pengajuan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

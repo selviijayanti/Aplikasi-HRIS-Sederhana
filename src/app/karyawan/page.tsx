@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatRupiah } from "@/lib/utils/time";
@@ -41,10 +42,21 @@ export function formatTanggalMasuk(dateStr: string | null | undefined): string {
 }
 
 export default function KaryawanPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      const role = user.peran?.toLowerCase();
+      if (role !== "atasan" && role !== "hrd") {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, loading, router]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDivisi, setFilterDivisi] = useState("Semua");
-  const [karyawanList, setKaryawanList] = useState<any[]>(profilesData as any[]);
+  const [karyawanList, setKaryawanList] = useState<any[]>([]);
   const [employeeSalaries, setEmployeeSalaries] = useState<Record<string, { gaji_pokok: number; tunjangan: number }>>({});
   
   // State Divisi Dinamis (Tersinkronisasi otomatis dengan Pengaturan Divisi & Cloud Firestore)
@@ -152,7 +164,11 @@ export default function KaryawanPage() {
         const parsed = JSON.parse(storedProfiles);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setKaryawanList(parsed);
+        } else {
+          setKaryawanList(profilesData as any[]);
         }
+      } else {
+        setKaryawanList(profilesData as any[]);
       }
     } catch (e) {
       console.warn("Sinkronisasi penyimpanan lokal karyawan:", e);
@@ -473,6 +489,10 @@ export default function KaryawanPage() {
     setDisplayNewTunjangan("");
     setTimeout(() => setActionSuccess(null), 3500);
   };
+
+  if (loading || !user || (user.peran?.toLowerCase() !== "atasan" && user.peran?.toLowerCase() !== "hrd")) {
+    return null;
+  }
 
   return (
     <>

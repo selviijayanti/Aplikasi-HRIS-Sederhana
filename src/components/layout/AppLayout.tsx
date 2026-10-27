@@ -118,11 +118,29 @@ function AppLayoutContent({ children, fullBleed }: AppLayoutProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/");
+  // RBAC Access Control (PRD BR-11 & NFR-3: Perlindungan hak akses rute berdasarkan peran)
+  const isAuthorized = React.useMemo(() => {
+    if (loading) return null; // Sedang memuat auth
+    if (!user) return false;
+    const role = user.peran?.toLowerCase();
+    if (pathname.startsWith("/laporan") || pathname.startsWith("/pengaturan")) {
+      return role === "hrd";
     }
-  }, [user, loading, router]);
+    if (pathname.startsWith("/persetujuan") || pathname.startsWith("/karyawan")) {
+      return role === "atasan" || role === "hrd";
+    }
+    return true;
+  }, [loading, user, pathname]);
+
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.replace("/");
+      } else if (isAuthorized === false) {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, loading, isAuthorized, router]);
 
   // Sinkronisasi badge menu Persetujuan secara dinamis & real-time dari Firestore (PRD Bab 7 & US-05/US-06)
   useEffect(() => {
@@ -234,6 +252,21 @@ function AppLayoutContent({ children, fullBleed }: AppLayoutProps) {
   const divisiLabel = user ? (user.divisi_nama || user.jabatan || "") : "";
 
   const isFullBleed = fullBleed ?? (pathname === "/persetujuan");
+
+  // NFR-3 / BR-11: Render loading / guard setelah seluruh hooks dipanggil
+  if (loading) {
+    return (
+      <div style={{ display: "flex", height: "100vh", width: "100%", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc" }}>
+        <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#64748b" }}>
+          Memverifikasi akses KarsaHR...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || isAuthorized === false) {
+    return null;
+  }
 
   return (
     <div className="app-shell">

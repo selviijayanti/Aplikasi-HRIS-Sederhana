@@ -4,6 +4,7 @@ import absensiSeedData from "../../../data/seeds/absensi.json";
 import profilesData from "../../../data/seeds/profiles.json";
 import pengajuanCutiSeed from "../../../data/seeds/pengajuan_cuti.json";
 import { AuthUser } from "../auth/auth-context";
+import { formatWIBDateString } from "../utils/time";
 
 export const ABSENSI_STORE_KEY = "karsahr_absensi_store";
 export const AUDIT_LOG_STORE_KEY = "karsahr_audit_log_store";
@@ -25,26 +26,29 @@ export function formatDivisionName(divisiRaw?: string | null, profileDivisi?: st
   if (divisiRaw) {
     const upper = divisiRaw.trim().toUpperCase();
     if (DIVISION_CODE_MAP[upper]) return DIVISION_CODE_MAP[upper];
+    if (divisiRaw.trim().length > 0) return divisiRaw.trim();
   }
   if (profileDivisi) {
     const upper = profileDivisi.trim().toUpperCase();
     if (DIVISION_CODE_MAP[upper]) return DIVISION_CODE_MAP[upper];
-    return profileDivisi;
+    if (profileDivisi.trim().length > 0) return profileDivisi.trim();
   }
-  return divisiRaw || "Penjualan";
+  return "Operasional Gudang";
 }
 
 export interface AttendanceRecord {
   id: string;
   karyawan_id: string;
   tanggal: string;
-  jam_masuk: string | null;
-  jam_pulang: string | null;
+  jam_masuk?: string | null;
+  jam_pulang?: string | null;
   status: string;
   dikoreksi_oleh?: string | null;
   alasan_koreksi?: string | null;
   "nama (bantu)"?: string | null;
   "divisi (bantu)"?: string | null;
+  nik_karyawan?: string | null;
+  catatan?: string | null;
   [key: string]: any;
 }
 
@@ -141,6 +145,7 @@ export async function recordAuditLog(entry: {
       const list = stored ? JSON.parse(stored) : [];
       list.unshift(auditEntry);
       localStorage.setItem(AUDIT_LOG_STORE_KEY, JSON.stringify(list));
+      window.dispatchEvent(new Event("storage"));
     } catch (e) {
       console.warn("Gagal simpan audit log ke storage:", e);
     }
@@ -172,11 +177,18 @@ export async function fetchAttendanceRecords(
   const profileMap = getProfilesMap();
   const currentUserId = user.seed_id || user.id;
 
+  // Helper filter absensi pribadi menyeluruh
+  const matchPersonalAttendance = (a: AttendanceRecord) => {
+    if (user.id && (a.karyawan_id === user.id || a.id?.includes(user.id))) return true;
+    if (user.seed_id && a.karyawan_id === user.seed_id) return true;
+    if (user.nik_karyawan && (a.nik_karyawan === user.nik_karyawan || (a as any).nik === user.nik_karyawan)) return true;
+    if (user.nama_lengkap && a["nama (bantu)"]?.toLowerCase()?.trim() === user.nama_lengkap.toLowerCase().trim()) return true;
+    return false;
+  };
+
   // 1. ROLE KARYAWAN: Hak akses terkunci mutlak ke data pribadi (WHERE karyawan_id = current_user.id)
   if (user.peran === "karyawan") {
-    let personalList = allRecords.filter(
-      (a) => a.karyawan_id === currentUserId || a.karyawan_id === user.id
-    );
+    let personalList = allRecords.filter(matchPersonalAttendance);
 
     // Filter bulan jika disediakan (YYYY-MM)
     if (filter.month && filter.month !== "Semua") {
@@ -189,9 +201,7 @@ export async function fetchAttendanceRecords(
   // 2. ROLE ATASAN: Memiliki dua scope (Pribadi & Tim Divisinya)
   if (user.peran === "atasan") {
     if (filter.viewScope === "personal") {
-      let personalList = allRecords.filter(
-        (a) => a.karyawan_id === currentUserId || a.karyawan_id === user.id
-      );
+      let personalList = allRecords.filter(matchPersonalAttendance);
       if (filter.month && filter.month !== "Semua") {
         personalList = personalList.filter((a) => a.tanggal.startsWith(filter.month!));
       }
@@ -199,8 +209,18 @@ export async function fetchAttendanceRecords(
     }
 
     // Tab "Tim Divisi": Wajib saring HANYA anggota divisinya (Atasan DILARANG melihat divisi lain)
-    const atasanDivisiId = user.divisi_id || "867481d0-6289-54a1-87db-47bb81db15ef";
-    const targetDate = filter.date || "2026-10-15";
+    const atasanProfile = (profilesData as Array<any>).find(
+      (p) =>
+        p.id === user.id ||
+        p.id === user.seed_id ||
+        p.email?.toLowerCase() === user.email?.toLowerCase()
+    );
+    const atasanDivisiId = atasanProfile?.divisi_id || user.divisi_id;
+    const atasanDivisiNama = formatDivisionName(
+      atasanProfile?.["divisi (bantu)"],
+      user.divisi_nama
+    );
+    const targetDate = filter.date || formatWIBDateString(new Date());
 
     // 1. Ambil data profil dari Firestore / seed dengan deduplikasi ketat per user (email / NIK)
     let allProfiles = profilesData as Array<any>;
@@ -234,14 +254,14 @@ export async function fetchAttendanceRecords(
       }
     }
 
-    // 2. Filter dan deduplikasi seluruh anggota aktif divisi Atasan (tepat 5 orang untuk Divisi Penjualan)
+    // 2. Filter dan deduplikasi seluruh anggota aktif divisi Atasan (tepat sesuai divisi Atasan)
     const divMemberMap = new Map<string, any>();
     allProfiles.forEach((p) => {
       if (p.aktif === false) return;
+      const memberDivName = formatDivisionName(p["divisi (bantu)"], p["divisi (bantu)"]);
       const isDivMatch =
-        p.divisi_id === atasanDivisiId ||
-        (p["divisi (bantu)"] || "").toLowerCase().includes("penjualan") ||
-        (p["divisi (bantu)"] || "").toLowerCase() === "sls";
+        (atasanDivisiId && p.divisi_id === atasanDivisiId) ||
+        memberDivName.toLowerCase() === atasanDivisiNama.toLowerCase();
 
       if (isDivMatch) {
         const key = (p.nik_karyawan || p.email || p.nama_lengkap || p.id).toLowerCase();
@@ -295,7 +315,7 @@ export async function fetchAttendanceRecords(
             (a["nama (bantu)"] && a["nama (bantu)"].toLowerCase() === member.nama_lengkap.toLowerCase()))
       );
 
-      const fullDivName = formatDivisionName(member["divisi (bantu)"], "Penjualan");
+      const fullDivName = formatDivisionName(member["divisi (bantu)"], atasanDivisiNama);
 
       if (existingRecord) {
         return {
@@ -386,9 +406,7 @@ export async function fetchAttendanceRecords(
     let companyList = [...allRecords];
 
     if (filter.viewScope === "personal") {
-      companyList = companyList.filter(
-        (a) => a.karyawan_id === currentUserId || a.karyawan_id === user.id
-      );
+      companyList = companyList.filter(matchPersonalAttendance);
       if (filter.month && filter.month !== "Semua") {
         companyList = companyList.filter((a) => a.tanggal.startsWith(filter.month!));
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatRupiah } from "@/lib/utils/time";
@@ -9,6 +10,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import slipGajiData from "../../../data/seeds/slip_gaji.json";
 import profilesData from "../../../data/seeds/profiles.json";
 import { sendEmailNotification } from "@/lib/email/email-service";
+import { logAuditActivity } from "@/lib/firebase/audit-service";
 import "./slip-gaji.css";
 
 const SLIP_STORE_KEY = "karsahr_slip_gaji_store";
@@ -150,7 +152,15 @@ const PERIODE_OPTIONS = [
 ];
 
 export default function SlipGajiPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
   const [selectedPeriode, setSelectedPeriode] = useState("2026-10-01");
   const [statusFilter, setStatusFilter] = useState<"semua" | "draf" | "terbit">("semua");
   const [selectedSlipDetail, setSelectedSlipDetail] = useState<any | null>(null);
@@ -637,6 +647,21 @@ export default function SlipGajiPage() {
     saveSlips(nextSlips);
     setToastMessage(`Slip gaji ${slip["nama (bantu)"] || "karyawan"} berhasil diterbitkan (${newSlipNum}).`);
 
+    // PRD BR-12: Catat penerbitan slip gaji ke audit log
+    logAuditActivity({
+      pelakuId: user?.id,
+      pelakuNama: user?.nama_lengkap || approverName,
+      aksi: "terbitkan_slip_gaji",
+      namaTabel: "slip_gaji",
+      dataId: slip.id,
+      nilaiSebelum: JSON.stringify({ status: "draf" }),
+      nilaiSesudah: JSON.stringify({
+        status: "terbit",
+        nomor_slip: newSlipNum,
+        diterbitkan_oleh: approverName,
+      }),
+    });
+
     // PRD Bab 11 & BR-11: Email ke karyawan saat slip gaji terbit, berisi tautan saja tanpa nominal gaji
     const target = resolveEmployeeEmail(slip);
     sendEmailNotification({
@@ -689,6 +714,21 @@ export default function SlipGajiPage() {
         return s;
       });
 
+      // PRD BR-12: Catat tiap penerbitan slip ke audit log
+      logAuditActivity({
+        pelakuId: user?.id,
+        pelakuNama: user?.nama_lengkap || approverName,
+        aksi: "terbitkan_slip_gaji",
+        namaTabel: "slip_gaji",
+        dataId: draft.id,
+        nilaiSebelum: JSON.stringify({ status: "draf" }),
+        nilaiSesudah: JSON.stringify({
+          status: "terbit",
+          nomor_slip: newSlipNum,
+          diterbitkan_oleh: approverName,
+        }),
+      });
+
       // PRD Bab 11 & BR-11: Kirim notifikasi email tanpa nominal gaji untuk setiap karyawan
       const target = resolveEmployeeEmail(draft);
       sendEmailNotification({
@@ -715,6 +755,10 @@ export default function SlipGajiPage() {
     saveSlips(workingList);
     setToastMessage(`${drafts.length} draf slip gaji periode ${formatPeriodeDisplay(selectedPeriode)} berhasil diterbitkan resmi.`);
   };
+
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <>

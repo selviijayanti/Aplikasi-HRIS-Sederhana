@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import { calculateWorkingDays } from "@/lib/utils/time";
@@ -15,6 +16,8 @@ import {
   getLeaveStatusOverrides,
   getSubmittedLeaves,
   updateLeaveStatusOverride,
+  calculateAccurateLeaveQuota,
+  refundLeaveQuotaStore,
 } from "@/lib/utils/leave-store";
 import { getRawAttendanceStore } from "@/lib/firebase/attendance-service";
 import { sendEmailNotification } from "@/lib/email/email-service";
@@ -182,7 +185,14 @@ export function canCancelRequest(
 }
 
 export default function CutiPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
 
   // State Formulir Pengajuan
   const [jenis, setJenis] = useState<"cuti_tahunan" | "sakit" | "izin">("cuti_tahunan");
@@ -195,6 +205,8 @@ export default function CutiPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [cancelModalItem, setCancelModalItem] = useState<any | null>(null);
+  const [isCancellingLeave, setIsCancellingLeave] = useState(false);
 
   const mulaiCalendarRef = useRef<HTMLInputElement>(null);
   const selesaiCalendarRef = useRef<HTMLInputElement>(null);
@@ -391,15 +403,18 @@ export default function CutiPage() {
           }
 
           const rangeKey = `${item.jenis?.toLowerCase()}_${sMulai}_${sSelesai}`;
-          const updatedStatus = overrides[item.id]?.status || item.status || "diajukan";
+          const aliasId = item.id === "feaf39cf-e72b-5830-bb52-efe413bc1c55" ? "cuti-01" : item.id === "cuti-01" ? "feaf39cf-e72b-5830-bb52-efe413bc1c55" : undefined;
+          const updatedStatus = overrides[item.id]?.status || (aliasId && overrides[aliasId]?.status) || item.status || "diajukan";
           const normalized = { ...item, status: updatedStatus };
 
           if (!uniqueByRange.has(rangeKey)) {
             uniqueByRange.set(rangeKey, normalized);
           } else {
-            // Jika sudah ada, prioritaskan dokumen dengan ID asli Firestore/seed daripada mock cuti-xx
+            // Jika sudah ada status ditolak/dibatalkan/disetujui, utamakan yang memiliki status mutakhir
             const existing = uniqueByRange.get(rangeKey);
-            if (existing.id?.startsWith("cuti-") && !item.id?.startsWith("cuti-")) {
+            if (updatedStatus === "ditolak" || updatedStatus === "dibatalkan" || updatedStatus === "disetujui") {
+              uniqueByRange.set(rangeKey, normalized);
+            } else if (existing.id?.startsWith("cuti-") && !item.id?.startsWith("cuti-")) {
               uniqueByRange.set(rangeKey, normalized);
             }
           }
@@ -416,63 +431,19 @@ export default function CutiPage() {
 
   // Hitung Kuota Cuti (Sesuai PRD BR-04, BR-06 & ERD kuota_cuti):
   // 1. Kuota hanya untuk tahun berjalan (2026).
-  // 2. Sakit dan Izin TIDAK BOLEH mengurangi kuota cuti (hanya Cuti Tahunan).
-  // 3. Status aktif yang memotong kuota: 'diajukan', 'disetujui_atasan', 'disetujui'.
-  // 4. Pengecualian ketat: status 'dibatalkan' dan 'ditolak' TIDAK BOLEH memotong kuota sama sekali.
-  // 5. Rumus: sisa_kuota = (total_jatah - terpakai_hari).
+  // Hitung Kuota Cuti (Sesuai PRD BR-04, BR-06 & ERD kuota_cuti):
+  // Single Source of Truth menggunakan calculateAccurateLeaveQuota
   const quotaSummary = useMemo(() => {
-    const userUid = user?.id;
-    const userSeedId = (user as any)?.seed_id;
-    const userFullName = user?.nama_lengkap?.toLowerCase();
-
-    // Ambil master jatah kuota dari kuotaCutiData untuk user ini di tahun 2026 jika ada
-    const qRec = (kuotaCutiData as Array<any>).find((k) => {
-      if (k.tahun !== 2026) return false;
-      if (userUid && k.karyawan_id === userUid) return true;
-      if (userSeedId && k.karyawan_id === userSeedId) return true;
-      if (userFullName && k["nama (bantu)"]?.toLowerCase() === userFullName) return true;
-      return false;
-    });
-
-    const jatahHari = qRec?.jatah_hari || 12;
-    let terpakai = 0;
-    const seenIds = new Set<string>();
-
-    daftarPengajuan.forEach((item) => {
-      if (!item || !item.id || seenIds.has(item.id)) return;
-      seenIds.add(item.id);
-
-      // Periksa tahun pengajuan (hanya 2026)
-      const ymd = parseDateToYMD(item.tanggal_mulai);
-      const is2026 = ymd ? ymd.startsWith("2026") : true;
-      if (!is2026) return;
-
-      // Hanya jenis "Cuti Tahunan" yang mengurangi kuota (Sakit & Izin TIDAK mengurangi kuota)
-      const isCutiTahunan =
-        item.jenis?.toLowerCase().includes("tahunan") || item.jenis === "cuti_tahunan";
-      if (!isCutiTahunan) return;
-
-      // Pengecualian ketat (PRD BR-04 & BR-06):
-      // Status 'dibatalkan' dan 'ditolak' TIDAK BOLEH memotong kuota sama sekali.
-      // Hanya status aktif: diajukan, disetujui_atasan, disetujui
-      const s = item.status?.toLowerCase();
-      if (s === "diajukan" || s === "disetujui_atasan" || s === "disetujui") {
-        terpakai += Number(item.jumlah_hari) || 0;
-      }
-    });
-
-    // terpakai_hari tidak boleh negatif dan tidak boleh melebihi jatah_hari (maks 12)
-    const terpakaiHari = Math.min(jatahHari, Math.max(0, terpakai));
-
-    // Rumus sisa kuota: (total_jatah - terpakai_hari)
-    const sisaKuota = Math.max(0, jatahHari - terpakaiHari);
-
-    return {
-      jatahHari,
-      terpakai: terpakaiHari,
-      sisa: sisaKuota,
-    };
-  }, [daftarPengajuan, user]);
+    return calculateAccurateLeaveQuota(
+      {
+        id: user?.id,
+        seed_id: (user as any)?.seed_id,
+        nik_karyawan: user?.nik_karyawan,
+        nama_lengkap: user?.nama_lengkap,
+      },
+      2026
+    );
+  }, [user, daftarPengajuan]);
 
   // Validasi jika jumlah hari melebihi sisa kuota cuti tahunan (PRD BR-06)
   const isExceedingQuota = useMemo(() => {
@@ -543,7 +514,7 @@ export default function CutiPage() {
       const d = String(minDate.getUTCDate()).padStart(2, "0");
       const m = String(minDate.getUTCMonth() + 1).padStart(2, "0");
       const y = minDate.getUTCFullYear();
-      return `Cuti tahunan baru boleh dimulai setelah masa kerja karyawan genap 12 bulan sejak tanggal masuk (${formatIndoDate(user.tanggal_masuk)}). Anda baru memenuhi syarat pada ${d}/${m}/${y} (PRD BR-04).`;
+      return `Cuti tahunan baru boleh dimulai setelah masa kerja karyawan genap 12 bulan sejak tanggal masuk (${formatIndoDate(user.tanggal_masuk)}). Anda baru memenuhi syarat pada ${d}/${m}/${y}.`;
     }
     return null;
   }, [jenis, user?.tanggal_masuk, tanggalMulai]);
@@ -554,10 +525,34 @@ export default function CutiPage() {
     const yMulai = tanggalMulai.slice(0, 4);
     const ySelesai = tanggalSelesai.slice(0, 4);
     if (yMulai && ySelesai && yMulai !== ySelesai) {
-      return "Satu pengajuan tidak boleh melewati pergantian tahun. Periode yang melintasi 31 Desember ke 1 Januari harus dipecah menjadi dua pengajuan terpisah (PRD BR-05).";
+      return "Satu pengajuan tidak boleh melewati pergantian tahun. Periode yang melintasi 31 Desember ke 1 Januari harus dipecah menjadi dua pengajuan terpisah.";
     }
     return null;
   }, [tanggalMulai, tanggalSelesai]);
+
+  // Aturan PRD BR-05: Batas waktu pengajuan
+  // - Cuti tahunan: paling lambat 3 hari kalender sebelum tanggal mulai (H-3)
+  // - Izin: paling lambat 1 hari kalender sebelum tanggal mulai (H-1)
+  // - Sakit: pada hari mulai sakit s/d paling lambat 3 hari kalender setelahnya
+  const deadlineError = useMemo(() => {
+    if (!tanggalMulai) return null;
+    const now = new Date();
+    const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayMs = new Date(todayYMD + "T00:00:00Z").getTime();
+    const startMs = new Date(tanggalMulai + "T00:00:00Z").getTime();
+    const diffCalendarDays = Math.round((startMs - todayMs) / (1000 * 60 * 60 * 24));
+
+    if (jenis === "cuti_tahunan" && diffCalendarDays < 3) {
+      return "Pengajuan cuti tahunan harus diajukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3).";
+    }
+    if (jenis === "izin" && diffCalendarDays < 1) {
+      return "Pengajuan izin harus diajukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1).";
+    }
+    if (jenis === "sakit" && diffCalendarDays < -3) {
+      return "Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit.";
+    }
+    return null;
+  }, [jenis, tanggalMulai]);
 
   // 2. Batasan Pengajuan Izin (Aturan PRD BR-08: maks 2 hari kerja)
   const isIzinExceeded = useMemo(() => {
@@ -573,23 +568,26 @@ export default function CutiPage() {
     return isDoctorNoteRequired && !fileSurat;
   }, [isDoctorNoteRequired, fileSurat]);
 
-  // Kunci tombol kirim form jika aturan bisnis dilanggar
-  const isSubmitDisabled = useMemo(() => {
-    if (hitungHariKerja < 1) return true;
-    if (tanggalMulai > tanggalSelesai) return true;
-    if (isExceedingQuota) return true;
-    if (!!overlapError) return true;
-    if (!!tenureError) return true;
-    if (!!crossYearError) return true;
-    if (isIzinExceeded) return true;
-    if (isDoctorNoteMissing) return true;
-    if (!alasan.trim()) return true;
-    return false;
+  // Alasan tombol kirim dinonaktifkan (Memberikan feedback transparan ke pengguna & PRD)
+  const submitDisabledReason = useMemo(() => {
+    if (hitungHariKerja < 1) return "Rentang tanggal tidak berisi hari kerja (Sabtu/Minggu/Hari Libur tidak dihitung).";
+    if (tanggalMulai > tanggalSelesai) return "Tanggal mulai tidak boleh lebih besar dari tanggal selesai.";
+    if (isExceedingQuota) return `Jumlah hari (${hitungHariKerja} hari kerja) melebihi sisa kuota cuti tahunan Anda (${quotaSummary.sisa} hari).`;
+    if (deadlineError) return deadlineError;
+    if (overlapError) return overlapError;
+    if (tenureError) return tenureError;
+    if (crossYearError) return crossYearError;
+    if (isIzinExceeded) return "Pengajuan izin melebihi batas maksimal 2 hari kerja per pengajuan.";
+    if (isDoctorNoteMissing) return "Lampiran surat dokter wajib diunggah untuk pengajuan sakit lebih dari 1 hari kerja.";
+    if (!alasan.trim()) return "Harap isi alasan pengajuan untuk mengaktifkan tombol kirim.";
+    return null;
   }, [
     hitungHariKerja,
     tanggalMulai,
     tanggalSelesai,
     isExceedingQuota,
+    quotaSummary.sisa,
+    deadlineError,
     overlapError,
     tenureError,
     crossYearError,
@@ -597,6 +595,9 @@ export default function CutiPage() {
     isDoctorNoteMissing,
     alasan,
   ]);
+
+  // Kunci tombol kirim form jika aturan bisnis dilanggar atau form belum lengkap
+  const isSubmitDisabled = !!submitDisabledReason;
 
   // 4. Kueri daftar riwayat pengajuan diurutkan berdasarkan dibuat_pada DESC (pengajuan terbaru di paling atas)
   const sortedDaftarPengajuan = useMemo(() => {
@@ -814,54 +815,72 @@ export default function CutiPage() {
     }).catch(() => {});
   };
 
-  // Penanganan Pembatalan Pengajuan (PRD BR-10 & Bab 7)
-  const handleCancel = async (id: string) => {
-    const item = daftarPengajuan.find((p) => p.id === id);
-    if (!item) return;
-
-    if (!confirm(`Apakah Anda yakin ingin membatalkan pengajuan ${item.jenis.toLowerCase()} ini?`)) {
-      return;
-    }
-
-    // Perbarui state lokal
-    setDaftarPengajuan((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: "dibatalkan" } : i))
-    );
-
-    // Perbarui status override di leave store
-    updateLeaveStatusOverride(id, "dibatalkan", user?.nama_lengkap || user?.id);
-
-    // Panggil service pembatalan Firestore
-    if (user?.id) {
-      try {
-        await cancelLeaveRequestInFirestore(id, user.id, item.jumlah_hari, item.jenis);
-      } catch (e) {
-        console.warn("Cancel notice:", e);
-      }
-    }
-
-    // PRD Bab 11: Notifikasi email pembatalan pengajuan
-    sendEmailNotification({
-      type: "LEAVE_STATUS_UPDATED",
-      toEmail: user?.email || "andi.wijaya@karsalintas.test",
-      toName: user?.nama_lengkap || "Karyawan",
-      subject: `[KarsaHR] Pembatalan Pengajuan: ${item.jenis}`,
-      title: "Permohonan Cuti/Izin Berhasil Dibatalkan",
-      message: "Permohonan cuti/izin Anda telah berhasil dibatalkan sesuai permintaan.",
-      badgeText: "Dibatalkan",
-      badgeColor: "#64748b",
-      summaryItems: [
-        { label: "Jenis Pengajuan", value: item.jenis },
-        { label: "Durasi", value: `${item.jumlah_hari} Hari Kerja` },
-        { label: "Status Terkini", value: "Dibatalkan oleh Pemohon" },
-      ],
-      actionPath: "/cuti",
-      actionText: "Lihat Riwayat Cuti",
-    }).catch(() => {});
-
-    setFormSuccess("Pengajuan berhasil dibatalkan. Kuota cuti dikembalikan.");
-    setTimeout(() => setFormSuccess(null), 4000);
+  // Penanganan Pembatalan Pengajuan Mandiri oleh Pemohon (Modal Modern)
+  const openCancelModal = (item: any) => {
+    setCancelModalItem(item);
   };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelModalItem) return;
+    const item = cancelModalItem;
+    setIsCancellingLeave(true);
+
+    try {
+      // Perbarui state lokal
+      setDaftarPengajuan((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, status: "dibatalkan" } : i))
+      );
+
+      // Perbarui status override di leave store
+      updateLeaveStatusOverride(item.id, "dibatalkan", user?.nama_lengkap || user?.id);
+
+      // PRD BR-06 & BR-10: Kembalikan saldo kuota cuti tahunan
+      const isTahunan = item.jenis === "cuti_tahunan" || item.jenis?.toLowerCase().includes("tahunan") || item.jenis === "Cuti tahunan";
+      if (isTahunan && item.jumlah_hari > 0) {
+        refundLeaveQuotaStore(item.karyawan_id || user?.id || user?.nik_karyawan || user?.nama_lengkap, item.jumlah_hari);
+      }
+
+      // Panggil service pembatalan Firestore
+      if (user?.id) {
+        try {
+          await cancelLeaveRequestInFirestore(item.id, user.id, item.jumlah_hari, item.jenis);
+        } catch (e) {
+          console.warn("Cancel notice:", e);
+        }
+      }
+
+      // PRD Bab 11: Notifikasi email pembatalan pengajuan
+      sendEmailNotification({
+        type: "LEAVE_STATUS_UPDATED",
+        toEmail: user?.email || "andi.wijaya@karsalintas.test",
+        toName: user?.nama_lengkap || "Karyawan",
+        subject: `[KarsaHR] Pembatalan Pengajuan: ${item.jenis}`,
+        title: "Permohonan Cuti/Izin Berhasil Dibatalkan",
+        message: "Permohonan cuti/izin Anda telah berhasil dibatalkan sesuai permintaan.",
+        badgeText: "Dibatalkan",
+        badgeColor: "#64748b",
+        summaryItems: [
+          { label: "Jenis Pengajuan", value: item.jenis },
+          { label: "Durasi", value: `${item.jumlah_hari} Hari Kerja` },
+          { label: "Status Terkini", value: "Dibatalkan oleh Pemohon" },
+        ],
+        actionPath: "/cuti",
+        actionText: "Lihat Riwayat Cuti",
+      }).catch(() => {});
+
+      setFormSuccess("Pengajuan berhasil dibatalkan. Kuota cuti Anda telah dikembalikan.");
+      setTimeout(() => setFormSuccess(null), 4000);
+      setCancelModalItem(null);
+    } catch (err) {
+      console.error("Gagal membatalkan pengajuan:", err);
+    } finally {
+      setIsCancellingLeave(false);
+    }
+  };
+
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <>
@@ -870,14 +889,82 @@ export default function CutiPage() {
         <p className="page-sub">Kelola permohonan cuti tahunan, sakit, dan izin Anda.</p>
       </div>
 
-      {formSuccess && <div className="alert-success">✓ {formSuccess}</div>}
+      {formSuccess && (
+        <div
+          className="alert-success"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.5rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <span>✓</span>
+            <span>{formSuccess}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormSuccess(null)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#166534",
+              cursor: "pointer",
+              fontSize: "1rem",
+              lineHeight: 1,
+              padding: "0.15rem 0.35rem",
+              borderRadius: "4px",
+              opacity: 0.8,
+            }}
+            title="Tutup pesan"
+            aria-label="Tutup pesan"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="cuti-grid">
         {/* Formulir Pengajuan (PRD Bab 7) */}
         <div className="ui-card">
           <h3 className="section-title">Formulir Pengajuan Baru</h3>
 
-          {formError && <div className="alert-error">✕ {formError}</div>}
+          {formError && (
+            <div
+              className="alert-error"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.5rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span>⚠️</span>
+                <span>{formError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormError(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#991b1b",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  lineHeight: 1,
+                  padding: "0.15rem 0.35rem",
+                  borderRadius: "4px",
+                  opacity: 0.8,
+                }}
+                title="Tutup pesan error"
+                aria-label="Tutup pesan error"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="cuti-form">
             <div className="form-item">
@@ -996,6 +1083,13 @@ export default function CutiPage() {
                 Hari Kerja Dihitung: <strong>{hitungHariKerja} hari kerja</strong> (Sabtu, Minggu & Hari Libur tidak dihitung)
               </span>
             </div>
+
+            {/* Validasi Batas Waktu H-3 / H-1 Sesuai PRD BR-05 */}
+            {deadlineError && (
+              <div className="alert-error" style={{ marginBottom: "0.5rem" }}>
+                {deadlineError}
+              </div>
+            )}
 
             {/* Validasi Kuota Melebihi Sesuai PRD BR-06 */}
             {isExceedingQuota && (
@@ -1152,20 +1246,26 @@ export default function CutiPage() {
                   ? "ui-btn-disabled submit-btn-disabled"
                   : "ui-btn-primary"
               }`}
-              title={
-                overlapError
-                  ? overlapError
-                  : isIzinExceeded
-                  ? "Pengajuan izin melebihi batas maksimal 2 hari kerja"
-                  : isDoctorNoteMissing
-                  ? "Wajib mengunggah surat dokter"
-                  : isExceedingQuota
-                  ? "Melebihi sisa kuota cuti tahunan"
-                  : "Kirim Pengajuan"
-              }
+              title={submitDisabledReason || "Kirim Pengajuan"}
             >
               Kirim Pengajuan
             </button>
+            {isSubmitDisabled && submitDisabledReason && (
+              <p
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  marginTop: "0.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  lineHeight: 1.4,
+                }}
+              >
+                <span>ℹ️</span>
+                <span>{submitDisabledReason}</span>
+              </p>
+            )}
           </form>
         </div>
 
@@ -1247,7 +1347,8 @@ export default function CutiPage() {
                         <td>
                           {cancelable ? (
                             <button
-                              onClick={() => handleCancel(item.id)}
+                              type="button"
+                              onClick={() => openCancelModal(item)}
                               className="ui-btn-cancel"
                               title="Batalkan permohonan ini"
                             >
@@ -1644,6 +1745,156 @@ export default function CutiPage() {
           }
         }
       `}</style>
+
+      {/* Modal Dialog Kustom Pembatalan Pengajuan oleh Pemohon */}
+      {cancelModalItem && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "1rem",
+            animation: "fadeIn 0.15s ease-out",
+          }}
+          onClick={() => !isCancellingLeave && setCancelModalItem(null)}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "12px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+              width: "100%",
+              maxWidth: "480px",
+              padding: "1.75rem",
+              border: "1px solid #e2e8f0",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div
+                  style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fee2e2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#dc2626",
+                    fontSize: "1.25rem",
+                    flexShrink: 0,
+                  }}
+                >
+                  ⚠️
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                    Batalkan Pengajuan?
+                  </h3>
+                  <p style={{ fontSize: "0.8125rem", color: "#64748b", margin: "0.2rem 0 0 0" }}>
+                    Tindakan ini akan membatalkan permohonan yang sedang berjalan.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancelModalItem(null)}
+                disabled={isCancellingLeave}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "1.25rem",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                  lineHeight: 1,
+                  padding: "0.25rem",
+                }}
+                title="Tutup"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+                padding: "0.875rem 1rem",
+                marginBottom: "1.25rem",
+                fontSize: "0.8125rem",
+              }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: "0.45rem", alignItems: "center" }}>
+                <span style={{ color: "#64748b" }}>Jenis Cuti</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelModalItem.jenis}</span>
+
+                <span style={{ color: "#64748b" }}>Durasi</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelModalItem.jumlah_hari} Hari Kerja</span>
+
+                <span style={{ color: "#64748b" }}>Periode</span>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{cancelModalItem.tanggal_mulai} s/d {cancelModalItem.tanggal_selesai || cancelModalItem.tanggal_mulai}</span>
+
+                <span style={{ color: "#64748b" }}>Dampak Kuota</span>
+                <span style={{ color: "#166534", fontWeight: 600 }}>
+                  ✓ Kuota sebanyak {cancelModalItem.jumlah_hari} hari akan dikembalikan ke saldo Anda
+                </span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.8125rem", color: "#475569", lineHeight: 1.5, margin: "0 0 1.5rem 0" }}>
+              Apakah Anda yakin ingin membatalkan pengajuan ini? Status permohonan akan berubah menjadi <strong>Dibatalkan</strong> dan tidak dapat diubah kembali.
+            </p>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                type="button"
+                onClick={() => setCancelModalItem(null)}
+                disabled={isCancellingLeave}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  color: "#475569",
+                  backgroundColor: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={isCancellingLeave}
+                style={{
+                  padding: "0.5rem 1.25rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "#ffffff",
+                  backgroundColor: "#dc2626",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: isCancellingLeave ? "not-allowed" : "pointer",
+                  opacity: isCancellingLeave ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+              >
+                {isCancellingLeave ? "Membatalkan..." : "Ya, Batalkan Pengajuan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

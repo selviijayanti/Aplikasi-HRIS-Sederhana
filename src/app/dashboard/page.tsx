@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatRupiah, calculateWorkingDays, determineAttendanceStatus } from "@/lib/utils/time";
+import { formatRupiah, calculateWorkingDays, determineAttendanceStatus, formatWIBDateString } from "@/lib/utils/time";
 import hariLiburData from "../../../data/seeds/hari_libur.json";
 import kuotaCutiData from "../../../data/seeds/kuota_cuti.json";
 import pengajuanCutiData from "../../../data/seeds/pengajuan_cuti.json";
@@ -12,8 +13,9 @@ import slipGajiData from "../../../data/seeds/slip_gaji.json";
 import profilesData from "../../../data/seeds/profiles.json";
 import divisiData from "../../../data/seeds/divisi.json";
 import { submitLeaveRequestToFirestore, cancelLeaveRequestInFirestore } from "@/lib/firebase/leave-service";
-import { getLeaveStatusOverrides, getSubmittedLeaves } from "@/lib/utils/leave-store";
+import { getLeaveStatusOverrides, getSubmittedLeaves, calculateAccurateLeaveQuota } from "@/lib/utils/leave-store";
 import { getRawAttendanceStore, persistAttendanceStore, AttendanceRecord } from "@/lib/firebase/attendance-service";
+import { logAuditActivity } from "@/lib/firebase/audit-service";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import "./dashboard.css";
@@ -64,16 +66,6 @@ const DEFAULT_APPROVAL_QUEUE = [
     nik: "KLN-0012",
     divisi: "Penjualan",
     jenis: "Izin",
-    status: "diajukan",
-  },
-  {
-    id: "cuti-06",
-    karyawan_id: "24173534-3de4-5c18-bc67-d3034545c061",
-    divisi_id: "8865d249-d46e-5207-bf19-1b9163f5e954",
-    nama: "Siti Nurhaliza",
-    nik: "KLN-0006",
-    divisi: "Operasional Gudang",
-    jenis: "Cuti tahunan",
     status: "diajukan",
   },
 ];
@@ -198,7 +190,15 @@ const WEEK_ATTENDANCE_DATA = [
 ];
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
   const isHRD = user?.peran === "hrd";
   const isAtasan = user?.peran === "atasan";
   const [hoveredWeekIdx, setHoveredWeekIdx] = useState<number | null>(null);
@@ -230,7 +230,8 @@ export default function DashboardPage() {
 
     const memberIds = new Set(members.map((m) => m.id));
     const rawStore = getRawAttendanceStore();
-    const todayRecords = rawStore.filter((r) => r.tanggal === "2026-10-15" && memberIds.has(r.karyawan_id));
+    const todayDateStr = formatWIBDateString(new Date());
+    const todayRecords = rawStore.filter((r) => r.tanggal === todayDateStr && memberIds.has(r.karyawan_id));
 
     let tepatWaktu = 0;
     let terlambat = 0;
@@ -442,10 +443,11 @@ export default function DashboardPage() {
   }, []);
 
   // Status Absensi Hari Ini Pribadi
-  const [hasCheckedIn, setHasCheckedIn] = useState(true);
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [hasCheckedOut, setHasCheckedOut] = useState(false);
-  const [checkInTime, setCheckInTime] = useState("07.39");
+  const [checkInTime, setCheckInTime] = useState("-");
   const [checkOutTime, setCheckOutTime] = useState("-");
+  const [checkInStatus, setCheckInStatus] = useState<"hadir" | "terlambat" | null>(null);
 
   // Kuota Cuti Tahunan Pribadi 2026 (Dinamis sesuai currentUser)
   const [jatahCuti, setJatahCuti] = useState(12);
@@ -458,31 +460,30 @@ export default function DashboardPage() {
   // Absensi 5 Hari Terakhir Pribadi (Dinamis sesuai currentUser)
   const [absensiList, setAbsensiList] = useState<AttendanceRow[]>([]);
   const [personalOctStats, setPersonalOctStats] = useState({ tepatWaktu: 10, terlambat: 0 });
+  const [isOnApprovedLeaveToday, setIsOnApprovedLeaveToday] = useState(false);
+  const [approvedLeaveType, setApprovedLeaveType] = useState("Cuti / Izin");
 
   // Sinkronisasi Data Pribadi berdasarkan User yang Sedang Login
   useEffect(() => {
     if (!user) return;
     const userUid = user.id;
     const userSeedId = (user as any)?.seed_id;
-    const userFullName = user.nama_lengkap?.toLowerCase();
+    const userNik = user.nik_karyawan;
+    const userFullName = user.nama_lengkap?.toLowerCase()?.trim();
 
     // 1. Sinkronisasi Kuota Cuti Pribadi (2026)
-    const qRec = (kuotaCutiData as Array<any>).find((k) => {
-      if (k.tahun !== 2026) return false;
-      if (userUid && k.karyawan_id === userUid) return true;
-      if (userSeedId && k.karyawan_id === userSeedId) return true;
-      if (userFullName && k["nama (bantu)"]?.toLowerCase() === userFullName) return true;
-      return false;
-    });
+    const quota = calculateAccurateLeaveQuota(
+      {
+        id: userUid,
+        seed_id: userSeedId,
+        nik_karyawan: userNik,
+        nama_lengkap: userFullName,
+      },
+      2026
+    );
 
-    if (qRec) {
-      setJatahCuti(qRec.jatah_hari || 12);
-      setTerpakaiCuti(qRec.terpakai_hari || 0);
-    } else {
-      setJatahCuti(12);
-      if (user.peran === "atasan" || user.peran === "hrd") setTerpakaiCuti(5);
-      else setTerpakaiCuti(7);
-    }
+    setJatahCuti(quota.jatahHari);
+    setTerpakaiCuti(quota.terpakai);
 
     // 2. Sinkronisasi Pengajuan Pribadi
     const syncPersonalLeaves = () => {
@@ -594,74 +595,124 @@ export default function DashboardPage() {
     syncPersonalLeaves();
 
     // 3. Sinkronisasi Absensi Pribadi (Hari Ini & 5 Hari Terakhir)
-    const rawStore = getRawAttendanceStore();
-    const userRecords = rawStore.filter((rec) => {
-      if (userUid && rec.karyawan_id === userUid) return true;
-      if (userSeedId && rec.karyawan_id === userSeedId) return true;
-      if (userFullName && rec["nama (bantu)"]?.toLowerCase() === userFullName) return true;
-      return false;
-    });
+    const syncPersonalAttendance = () => {
+      const rawStore = getRawAttendanceStore();
+      const userRecords = rawStore.filter((rec) => {
+        if (userUid && (rec.karyawan_id === userUid || rec.id?.includes(userUid))) return true;
+        if (userSeedId && rec.karyawan_id === userSeedId) return true;
+        if (userNik && (rec.nik_karyawan === userNik || (rec as any).nik === userNik)) return true;
+        if (userFullName && rec["nama (bantu)"]?.toLowerCase()?.trim() === userFullName) return true;
+        return false;
+      });
 
-    userRecords.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
+      userRecords.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
 
-    const todayRec = userRecords.find((r) => r.tanggal === "2026-10-15");
-    if (todayRec && todayRec.jam_masuk) {
-      const masuk = formatTimeWIB(todayRec.jam_masuk);
-      const pulang = formatTimeWIB(todayRec.jam_pulang);
-      setHasCheckedIn(Boolean(masuk && masuk !== "-"));
-      setCheckInTime(masuk !== "-" ? masuk : "07.39");
-      setHasCheckedOut(Boolean(todayRec.jam_pulang && pulang !== "-"));
-      setCheckOutTime(pulang !== "-" ? pulang : "-");
-    } else {
-      setHasCheckedIn(false);
-      setCheckInTime("-");
-      setHasCheckedOut(false);
-      setCheckOutTime("-");
-    }
+      const todayDateStr = formatWIBDateString(new Date());
 
-    const top5 = userRecords.slice(0, 5).map((r) => {
-      const masuk = formatTimeWIB(r.jam_masuk);
-      const pulang = formatTimeWIB(r.jam_pulang);
-      const isLate = isLateAttendance(r.jam_masuk) || r.status === "terlambat";
-      return {
-        tanggal: formatIndoFullDate(r.tanggal),
-        masuk: masuk,
-        pulang: pulang,
-        status: isLate ? "Terlambat" : (r.status === "hadir" ? "Hadir" : r.status || "Hadir"),
-      };
-    });
+      // Periksa apakah user memiliki cuti, sakit, atau izin yang sudah disetujui hari ini (PRD BR-02)
+      try {
+        const overrides = getLeaveStatusOverrides();
+        const allLeaves = [
+          ...getSubmittedLeaves(),
+          ...(pengajuanCutiData as Array<any>).map((p) => ({
+            ...p,
+            status: overrides[p.id]?.status || p.status,
+          })),
+        ];
+        const todayApprovedLeave = allLeaves.find((l) => {
+          const isUserMatch =
+            (userUid && (l.karyawan_id === userUid || (l as any).seed_id === userUid)) ||
+            (userSeedId && l.karyawan_id === userSeedId) ||
+            (userNik && (l.nik_karyawan === userNik || (l as any).nik === userNik)) ||
+            (userFullName && (l.nama_karyawan?.toLowerCase()?.trim() === userFullName || l["pemohon (bantu)"]?.toLowerCase()?.trim() === userFullName));
+          const currentStatus = overrides[l.id]?.status || l.status;
+          const isApproved = currentStatus === "disetujui" || currentStatus === "disetujui_atasan";
+          const start = (l.tanggal_mulai || "").split("T")[0];
+          const end = (l.tanggal_selesai || l.tanggal_mulai || "").split("T")[0];
+          return isUserMatch && isApproved && todayDateStr >= start && todayDateStr <= end;
+        });
 
-    if (top5.length > 0) {
-      setAbsensiList(top5);
-    } else {
-      setAbsensiList([
-        { tanggal: "Kamis, 15 Okt 2026", masuk: "07.39", pulang: "-", status: "Hadir" },
-        { tanggal: "Rabu, 14 Okt 2026", masuk: "07.22", pulang: "17.59", status: "Hadir" },
-        { tanggal: "Selasa, 13 Okt 2026", masuk: "07.51", pulang: "17.39", status: "Hadir" },
-        { tanggal: "Senin, 12 Okt 2026", masuk: "08.05", pulang: "17.49", status: "Hadir" },
-        { tanggal: "Jumat, 9 Okt 2026", masuk: "07.20", pulang: "17.14", status: "Hadir" },
-      ]);
-    }
-
-    // 4. Statistik Kehadiran Oktober Pribadi
-    const octRecords = userRecords.filter((r) => r.tanggal?.startsWith("2026-10"));
-    let tepatCount = 0;
-    let lateCount = 0;
-    octRecords.forEach((r) => {
-      if (r.status === "hadir" && !isLateAttendance(r.jam_masuk)) {
-        tepatCount++;
-      } else if (r.status === "terlambat" || isLateAttendance(r.jam_masuk)) {
-        lateCount++;
+        if (todayApprovedLeave) {
+          setIsOnApprovedLeaveToday(true);
+          const jenisLabel =
+            todayApprovedLeave.jenis === "cuti_tahunan"
+              ? "Cuti Tahunan"
+              : todayApprovedLeave.jenis === "sakit"
+              ? "Sakit"
+              : "Izin";
+          setApprovedLeaveType(jenisLabel);
+        } else {
+          setIsOnApprovedLeaveToday(false);
+        }
+      } catch (e) {
+        console.warn("Gagal cek cuti hari ini:", e);
       }
-    });
 
-    setPersonalOctStats({
-      tepatWaktu: tepatCount || (user.peran === "hrd" || user.peran === "atasan" ? 10 : 9),
-      terlambat: lateCount || (user.peran === "karyawan" ? 1 : 0),
-    });
+      const todayRec = userRecords.find((r) => r.tanggal === todayDateStr);
+      if (todayRec && todayRec.jam_masuk) {
+        const masuk = formatTimeWIB(todayRec.jam_masuk);
+        const pulang = formatTimeWIB(todayRec.jam_pulang);
+        const isLate = isLateAttendance(todayRec.jam_masuk) || todayRec.status === "terlambat";
+        setHasCheckedIn(Boolean(masuk && masuk !== "-"));
+        setCheckInTime(masuk !== "-" ? masuk : "-");
+        setCheckInStatus(isLate ? "terlambat" : "hadir");
+        setHasCheckedOut(Boolean(todayRec.jam_pulang && pulang !== "-"));
+        setCheckOutTime(pulang !== "-" ? pulang : "-");
+      } else {
+        setHasCheckedIn(false);
+        setCheckInTime("-");
+        setCheckInStatus(null);
+        setHasCheckedOut(false);
+        setCheckOutTime("-");
+      }
+
+      const top5 = userRecords.slice(0, 5).map((r) => {
+        const masuk = formatTimeWIB(r.jam_masuk);
+        const pulang = formatTimeWIB(r.jam_pulang);
+        const isLate = isLateAttendance(r.jam_masuk) || r.status === "terlambat";
+        return {
+          tanggal: formatIndoFullDate(r.tanggal),
+          masuk: masuk,
+          pulang: pulang,
+          status: isLate ? "Terlambat" : (r.status === "hadir" ? "Hadir" : r.status || "Hadir"),
+        };
+      });
+
+      if (top5.length > 0) {
+        setAbsensiList(top5);
+      } else {
+        setAbsensiList([
+          { tanggal: "Kamis, 15 Okt 2026", masuk: "07.39", pulang: "-", status: "Hadir" },
+          { tanggal: "Rabu, 14 Okt 2026", masuk: "07.22", pulang: "17.59", status: "Hadir" },
+          { tanggal: "Selasa, 13 Okt 2026", masuk: "07.51", pulang: "17.39", status: "Hadir" },
+          { tanggal: "Senin, 12 Okt 2026", masuk: "08.05", pulang: "17.49", status: "Hadir" },
+          { tanggal: "Jumat, 9 Okt 2026", masuk: "07.20", pulang: "17.14", status: "Hadir" },
+        ]);
+      }
+
+      // 4. Statistik Kehadiran Oktober Pribadi
+      const octRecords = userRecords.filter((r) => r.tanggal?.startsWith("2026-10"));
+      let tepatCount = 0;
+      let lateCount = 0;
+      octRecords.forEach((r) => {
+        if (r.status === "hadir" && !isLateAttendance(r.jam_masuk)) {
+          tepatCount++;
+        } else if (r.status === "terlambat" || isLateAttendance(r.jam_masuk)) {
+          lateCount++;
+        }
+      });
+
+      setPersonalOctStats({
+        tepatWaktu: tepatCount || (user.peran === "hrd" || user.peran === "atasan" ? 10 : 9),
+        terlambat: lateCount || (user.peran === "karyawan" ? 1 : 0),
+      });
+    };
+
+    syncPersonalAttendance();
 
     const handleStorageEvent = () => {
       syncPersonalLeaves();
+      syncPersonalAttendance();
     };
     window.addEventListener("storage", handleStorageEvent);
     return () => window.removeEventListener("storage", handleStorageEvent);
@@ -692,7 +743,7 @@ export default function DashboardPage() {
   }, []);
 
   // Jam server real-time WIB & Sapaan
-  const [serverTimeFormatted, setServerTimeFormatted] = useState("Kamis, 15 Okt 2026 · Jam server 10.24 WIB");
+  const [serverTimeFormatted, setServerTimeFormatted] = useState("Selasa, 27 Okt 2026 · Jam server WIB");
   const [greeting, setGreeting] = useState("pagi");
 
   useEffect(() => {
@@ -791,16 +842,20 @@ export default function DashboardPage() {
     const fullTimeStr = `${hh}:${mm}:${ss}`;
     // BR-03: Tepat 08.15.00 berstatus hadir, 08.15.01 berstatus terlambat
     const statusKehadiran = determineAttendanceStatus(fullTimeStr);
-
-    setCheckInTime(jamNow);
-    setHasCheckedIn(true);
+    const todayDateStr = formatWIBDateString(now);
 
     const userUid = user?.id;
     const userSeedId = (user as any)?.seed_id;
-    const userFullName = user?.nama_lengkap?.toLowerCase();
+    const userFullName = user?.nama_lengkap?.toLowerCase()?.trim();
     const userNik = user?.nik_karyawan;
 
     // BR-02: Check-in ditolak pada hari karyawan sedang cuti, sakit, atau izin yang sudah disetujui
+    if (isOnApprovedLeaveToday) {
+      setToastMessage(`Check-in ditolak: Anda sedang ${approvedLeaveType} yang sudah disetujui untuk hari ini (PRD BR-02).`);
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
+
     try {
       const overrides = getLeaveStatusOverrides();
       const allLeaves = [
@@ -814,18 +869,19 @@ export default function DashboardPage() {
         const isUserMatch =
           (userUid && (l.karyawan_id === userUid || (l as any).seed_id === userUid)) ||
           (userSeedId && l.karyawan_id === userSeedId) ||
-          (userNik && l.nik_karyawan === userNik) ||
-          (userFullName && (l.nama_karyawan?.toLowerCase() === userFullName || l["pemohon (bantu)"]?.toLowerCase() === userFullName));
+          (userNik && (l.nik_karyawan === userNik || (l as any).nik === userNik)) ||
+          (userFullName && (l.nama_karyawan?.toLowerCase()?.trim() === userFullName || l["pemohon (bantu)"]?.toLowerCase()?.trim() === userFullName));
         const currentStatus = overrides[l.id]?.status || l.status;
         const isApproved = currentStatus === "disetujui" || currentStatus === "disetujui_atasan";
         const start = (l.tanggal_mulai || "").split("T")[0];
         const end = (l.tanggal_selesai || l.tanggal_mulai || "").split("T")[0];
-        const isTodayInRange = "2026-10-15" >= start && "2026-10-15" <= end;
+        const isTodayInRange = todayDateStr >= start && todayDateStr <= end;
         return isUserMatch && isApproved && isTodayInRange;
       });
 
       if (hasApprovedLeaveToday) {
-        setToastMessage("Check-in ditolak pada hari karyawan sedang cuti, sakit, atau izin yang sudah disetujui (PRD BR-02).");
+        setIsOnApprovedLeaveToday(true);
+        setToastMessage("Check-in ditolak: Anda memiliki pengajuan cuti/izin/sakit yang sudah disetujui untuk hari ini (PRD BR-02).");
         setTimeout(() => setToastMessage(null), 4000);
         return;
       }
@@ -838,10 +894,11 @@ export default function DashboardPage() {
       const rawStore = getRawAttendanceStore();
       const existingIdx = rawStore.findIndex((rec) => {
         const isMatchUser =
-          (userUid && rec.karyawan_id === userUid) ||
+          (userUid && (rec.karyawan_id === userUid || rec.id?.includes(userUid))) ||
           (userSeedId && rec.karyawan_id === userSeedId) ||
-          (userFullName && rec["nama (bantu)"]?.toLowerCase() === userFullName);
-        return isMatchUser && rec.tanggal === "2026-10-15";
+          (userNik && (rec.nik_karyawan === userNik || (rec as any).nik === userNik)) ||
+          (userFullName && rec["nama (bantu)"]?.toLowerCase()?.trim() === userFullName);
+        return isMatchUser && rec.tanggal === todayDateStr;
       });
 
       if (existingIdx >= 0 && rawStore[existingIdx].jam_masuk) {
@@ -850,11 +907,16 @@ export default function DashboardPage() {
         return;
       }
 
-      const isoNow = `2026-10-15T${hh}:${mm}:${ss}+07:00`;
+      // Validasi lolos: Catat status check-in sekarang
+      setCheckInTime(jamNow);
+      setHasCheckedIn(true);
+      setCheckInStatus(statusKehadiran);
+
+      const isoNow = `${todayDateStr}T${hh}:${mm}:${ss}+07:00`;
       const newRec: AttendanceRecord = {
-        id: `absensi-${userUid || "usr"}-2026-10-15`,
+        id: `absensi-${userUid || "usr"}-${todayDateStr}`,
         karyawan_id: userUid || userSeedId || "user-1",
-        tanggal: "2026-10-15",
+        tanggal: todayDateStr,
         jam_masuk: isoNow,
         jam_pulang: null,
         status: statusKehadiran,
@@ -871,17 +933,58 @@ export default function DashboardPage() {
         updatedStore = [newRec, ...rawStore];
       }
       persistAttendanceStore(updatedStore);
+
+      // Catat ke audit log (PRD BR-12)
+      logAuditActivity({
+        pelakuId: userUid,
+        pelakuNama: user?.nama_lengkap || "Karyawan",
+        aksi: "check_in",
+        namaTabel: "absensi",
+        dataId: newRec.id,
+        nilaiSebelum: null,
+        nilaiSesudah: JSON.stringify({
+          tanggal: todayDateStr,
+          jam_masuk: isoNow,
+          status: statusKehadiran,
+        }),
+      });
     } catch (e) {
       console.warn("Gagal simpan check-in ke store:", e);
     }
 
-    setAbsensiList((prev) =>
-      prev.map((row, idx) =>
-        idx === 0
-          ? { ...row, masuk: jamNow, status: statusKehadiran === "hadir" ? "Hadir" : "Terlambat" }
-          : row
-      )
-    );
+    const todayIndoFull = formatIndoFullDate(todayDateStr);
+    const newStatusLabel = statusKehadiran === "hadir" ? "Hadir" : "Terlambat";
+
+    setAbsensiList((prev) => {
+      const existingIdx = prev.findIndex(
+        (r) => r.tanggal === todayIndoFull || r.tanggal.includes(todayDateStr)
+      );
+
+      if (existingIdx >= 0) {
+        return prev.map((row, idx) =>
+          idx === existingIdx
+            ? { ...row, tanggal: todayIndoFull, masuk: jamNow, status: newStatusLabel }
+            : row
+        );
+      }
+
+      const newTodayRow: AttendanceRow = {
+        tanggal: todayIndoFull,
+        masuk: jamNow,
+        pulang: "-",
+        status: newStatusLabel,
+      };
+      const prevWithoutToday = prev.filter(
+        (r) => r.tanggal !== todayIndoFull && !r.tanggal.includes(todayDateStr)
+      );
+      return [newTodayRow, ...prevWithoutToday.slice(0, 4)];
+    });
+
+    setPersonalOctStats((prev) => ({
+      tepatWaktu: statusKehadiran === "hadir" ? prev.tepatWaktu + 1 : prev.tepatWaktu,
+      terlambat: statusKehadiran === "terlambat" ? prev.terlambat + 1 : prev.terlambat,
+    }));
+
     const statusLabel = statusKehadiran === "hadir" ? "hadir tepat waktu" : "terlambat";
     setToastMessage(`Check-in berhasil tercatat pada ${jamNow} WIB (${statusLabel}) dari server.`);
     setTimeout(() => setToastMessage(null), 3500);
@@ -906,38 +1009,57 @@ export default function DashboardPage() {
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
     const jamNow = `${hh}.${mm}`;
+    const todayDateStr = formatWIBDateString(now);
     setCheckOutTime(jamNow);
     setHasCheckedOut(true);
 
     const userUid = user?.id;
     const userSeedId = (user as any)?.seed_id;
-    const userFullName = user?.nama_lengkap?.toLowerCase();
+    const userNik = user?.nik_karyawan;
+    const userFullName = user?.nama_lengkap?.toLowerCase()?.trim();
 
     try {
       const rawStore = getRawAttendanceStore();
       const existingIdx = rawStore.findIndex((rec) => {
         const isMatchUser =
-          (userUid && rec.karyawan_id === userUid) ||
+          (userUid && (rec.karyawan_id === userUid || rec.id?.includes(userUid))) ||
           (userSeedId && rec.karyawan_id === userSeedId) ||
-          (userFullName && rec["nama (bantu)"]?.toLowerCase() === userFullName);
-        return isMatchUser && rec.tanggal === "2026-10-15";
+          (userNik && (rec.nik_karyawan === userNik || (rec as any).nik === userNik)) ||
+          (userFullName && rec["nama (bantu)"]?.toLowerCase()?.trim() === userFullName);
+        return isMatchUser && rec.tanggal === todayDateStr;
       });
 
       if (existingIdx >= 0) {
-        const isoNow = `2026-10-15T${hh}:${mm}:${ss}+07:00`;
+        const isoNow = `${todayDateStr}T${hh}:${mm}:${ss}+07:00`;
         const updatedStore = [...rawStore];
         updatedStore[existingIdx] = {
           ...updatedStore[existingIdx],
           jam_pulang: isoNow,
         };
         persistAttendanceStore(updatedStore);
+
+        // Catat ke audit log (PRD BR-12)
+        logAuditActivity({
+          pelakuId: userUid,
+          pelakuNama: user?.nama_lengkap || "Karyawan",
+          aksi: "check_out",
+          namaTabel: "absensi",
+          dataId: updatedStore[existingIdx].id || `absensi-${userUid || "usr"}-${todayDateStr}`,
+          nilaiSebelum: JSON.stringify({ jam_pulang: null }),
+          nilaiSesudah: JSON.stringify({ jam_pulang: isoNow }),
+        });
       }
     } catch (e) {
       console.warn("Gagal simpan check-out ke store:", e);
     }
 
+    const todayIndoFull = formatIndoFullDate(todayDateStr);
     setAbsensiList((prev) =>
-      prev.map((row, idx) => (idx === 0 ? { ...row, pulang: jamNow } : row))
+      prev.map((row) =>
+        row.tanggal === todayIndoFull || row.tanggal.includes(todayDateStr)
+          ? { ...row, pulang: jamNow }
+          : row
+      )
     );
     setToastMessage(`Check-out berhasil pada ${jamNow} WIB. Presensi hari ini lengkap.`);
     setTimeout(() => setToastMessage(null), 3000);
@@ -981,6 +1103,28 @@ export default function DashboardPage() {
       return;
     }
 
+    // PRD BR-05: Batas waktu pengajuan
+    const now = new Date();
+    const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayMs = new Date(todayYMD + "T00:00:00Z").getTime();
+    const startMs = new Date(formStart + "T00:00:00Z").getTime();
+    const diffCalendarDays = Math.round((startMs - todayMs) / (1000 * 60 * 60 * 24));
+
+    if (formJenis === "cuti_tahunan" && diffCalendarDays < 3) {
+      setFormError("Pengajuan cuti tahunan wajib dilakukan paling lambat 3 hari kalender sebelum tanggal mulai (H-3) sesuai PRD BR-05.");
+      return;
+    }
+
+    if (formJenis === "izin" && diffCalendarDays < 1) {
+      setFormError("Pengajuan izin wajib dilakukan paling lambat 1 hari kalender sebelum tanggal mulai (H-1) sesuai PRD BR-05.");
+      return;
+    }
+
+    if (formJenis === "sakit" && diffCalendarDays < -3) {
+      setFormError("Pengajuan sakit paling lambat dilaporkan 3 hari kalender setelah tanggal mulai sakit (PRD BR-05).");
+      return;
+    }
+
     if (formJenis === "sakit" && calculatedDays > 1 && !formFileSurat) {
       setFormError("Pengajuan sakit lebih dari 1 hari kerja wajib melampirkan surat dokter.");
       return;
@@ -1018,7 +1162,12 @@ export default function DashboardPage() {
       fileSurat: formFileSurat,
     });
 
-    const newId = (result.success && result.id ? result.id : result.fallbackId) || ("cuti-" + Date.now());
+    if (!result.success) {
+      setFormError(result.error || "Gagal mengirim pengajuan cuti.");
+      return;
+    }
+
+    const newId = (result.id ? result.id : result.fallbackId) || ("cuti-" + Date.now());
 
     const newItem: LeaveItem = {
       id: newId,
@@ -1113,6 +1262,10 @@ export default function DashboardPage() {
       totalNetto: 8112000,
     };
   }, [user]);
+
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <>
@@ -1575,30 +1728,49 @@ export default function DashboardPage() {
           <div className="metrics-row">
             {/* Card 1: Absensi Hari Ini */}
             <div className="ui-card">
-              <div className="metric-title">ABSENSI HARI INI</div>
+              <div className="metric-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>ABSENSI HARI INI</span>
+                <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#2563eb", textTransform: "none" }}>
+                  {formatIndoFullDate(formatWIBDateString(new Date()))}
+                </span>
+              </div>
               <div className="metric-highlight-row">
                 <span className="metric-big-number">
-                  {hasCheckedIn ? `Check-in ${checkInTime}` : "Belum check-in"}
+                  {isOnApprovedLeaveToday
+                    ? `Sedang ${approvedLeaveType}`
+                    : hasCheckedIn
+                    ? `Check-in ${checkInTime}`
+                    : "Belum check-in"}
                 </span>
-                {hasCheckedIn && <span className="status-pill hadir">Hadir</span>}
+                {isOnApprovedLeaveToday ? (
+                  <span className="status-pill hadir" style={{ background: "#dbeafe", color: "#1e40af" }}>
+                    Disetujui
+                  </span>
+                ) : hasCheckedIn ? (
+                  <span className={`status-pill ${checkInStatus === "terlambat" ? "terlambat" : "hadir"}`}>
+                    {checkInStatus === "terlambat" ? "Terlambat" : "Hadir"}
+                  </span>
+                ) : null}
               </div>
               <p className="metric-footnote">
-                {hasCheckedOut
+                {isOnApprovedLeaveToday
+                  ? `Pengajuan ${approvedLeaveType} Anda aktif hari ini (PRD BR-02). Presensi harian tidak diperlukan.`
+                  : hasCheckedOut
                   ? `Sudah check-out pada pukul ${checkOutTime} WIB.`
                   : "Check-in mulai 06.00 – 12.00 WIB · Jam kerja standar 08.00 – 17.00 WIB"}
               </p>
               <div className="metric-btn-row">
                 <button
                   onClick={handleCheckIn}
-                  disabled={hasCheckedIn}
-                  className={`ui-btn ${hasCheckedIn ? "ui-btn-disabled" : "ui-btn-primary"}`}
+                  disabled={hasCheckedIn || isOnApprovedLeaveToday}
+                  className={`ui-btn ${hasCheckedIn || isOnApprovedLeaveToday ? "ui-btn-disabled" : "ui-btn-primary"}`}
                 >
-                  Check-in
+                  {isOnApprovedLeaveToday ? `Sedang ${approvedLeaveType}` : "Check-in"}
                 </button>
                 <button
                   onClick={handleCheckOut}
-                  disabled={!hasCheckedIn || hasCheckedOut}
-                  className={`ui-btn ${!hasCheckedIn || hasCheckedOut ? "ui-btn-disabled" : "ui-btn-primary"}`}
+                  disabled={!hasCheckedIn || hasCheckedOut || isOnApprovedLeaveToday}
+                  className={`ui-btn ${!hasCheckedIn || hasCheckedOut || isOnApprovedLeaveToday ? "ui-btn-disabled" : "ui-btn-primary"}`}
                 >
                   {hasCheckedOut ? "Sudah Pulang" : "Check-out"}
                 </button>
@@ -1738,7 +1910,9 @@ export default function DashboardPage() {
                       <td>{row.masuk}</td>
                       <td>{row.pulang}</td>
                       <td>
-                        <span className="status-pill hadir">{row.status}</span>
+                        <span className={`status-pill ${row.status.toLowerCase() === "terlambat" ? "terlambat" : "hadir"}`}>
+                          {row.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -1760,7 +1934,39 @@ export default function DashboardPage() {
               Sisa kuota cuti tahunan Anda: <strong>{sisaCuti} hari</strong>
             </p>
 
-            {formError && <div className="alert-error-mini">⚠️ {formError}</div>}
+            {formError && (
+              <div
+                className="alert-error-mini"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.5rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span>⚠️</span>
+                  <span>{formError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormError(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#991b1b",
+                    cursor: "pointer",
+                    fontSize: "0.95rem",
+                    lineHeight: 1,
+                    padding: "0.1rem 0.3rem",
+                  }}
+                  title="Tutup pesan"
+                  aria-label="Tutup pesan"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmitLeave} className="modal-form">
               <div className="form-item">

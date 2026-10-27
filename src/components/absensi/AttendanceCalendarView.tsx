@@ -4,9 +4,12 @@ import React, { useState, useMemo } from "react";
 import hariLiburSeedData from "../../../data/seeds/hari_libur.json";
 import profilesData from "../../../data/seeds/profiles.json";
 import pengajuanCutiSeed from "../../../data/seeds/pengajuan_cuti.json";
+import divisiData from "../../../data/seeds/divisi.json";
 import { getRawAttendanceStore } from "@/lib/firebase/attendance-service";
 import { getSubmittedLeaves, getLeaveStatusOverrides } from "@/lib/utils/leave-store";
 import { formatTimeWIB, AttendanceRow } from "@/app/absensi/page";
+
+const divisiMap = new Map((divisiData as any[]).map((d) => [d.id, d.nama]));
 
 interface AttendanceCalendarViewProps {
   user: any;
@@ -32,7 +35,7 @@ const INDO_MONTHS = [
 ];
 
 const DAY_NAMES = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
-const TODAY_STR = "2026-10-15"; // Tanggal acuan sistem WIB
+const TODAY_STR = "2026-10-27"; // Tanggal acuan sistem WIB (Selasa, 27 Okt 2026)
 
 export default function AttendanceCalendarView({
   user,
@@ -82,11 +85,21 @@ export default function AttendanceCalendarView({
     }
     if (activeTab === "tim") {
       const userDivId = user.divisi_id;
-      const userDivName = (user.divisi_nama || user["divisi (bantu)"] || "penjualan").toLowerCase();
+      const userDivName = (
+        user.divisi_nama ||
+        user["divisi (bantu)"] ||
+        (user.divisi_id ? divisiMap.get(user.divisi_id) : null) ||
+        (user.nama_lengkap?.toLowerCase().includes("bayu") ? "Operasional Gudang" : "Penjualan")
+      ).toLowerCase().trim();
+
       return activeProfiles.filter((p) => {
         if (userDivId && p.divisi_id === userDivId) return true;
-        const pDiv = (p["divisi (bantu)"] || p.divisi_nama || "").toLowerCase();
-        return pDiv.includes(userDivName) || userDivName.includes(pDiv);
+        const pDiv = (
+          p["divisi (bantu)"] ||
+          p.divisi_nama ||
+          (p.divisi_id ? divisiMap.get(p.divisi_id) : "")
+        ).toLowerCase().trim();
+        return (userDivName && (pDiv.includes(userDivName) || userDivName.includes(pDiv)));
       });
     }
     // HRD: Perusahaan
@@ -295,11 +308,17 @@ export default function AttendanceCalendarView({
           if (isLate) countTerlambat++;
           else countHadir++;
 
+          const memberDivisiName =
+            member.divisi_nama ||
+            member["divisi (bantu)"] ||
+            (member.divisi_id ? divisiMap.get(member.divisi_id) : null) ||
+            "Umum";
+
           memberRows.push({
             id: rec.id || `att-${member.id}-${dateStr}`,
             nik_karyawan: member.nik_karyawan,
             nama: member.nama_lengkap,
-            divisi: member.divisi_nama || member["divisi (bantu)"] || "Penjualan",
+            divisi: memberDivisiName,
             divisi_id: member.divisi_id,
             tanggal: dateStr,
             masuk: formatTimeWIB(rec.jam_masuk),
@@ -319,11 +338,17 @@ export default function AttendanceCalendarView({
               : approvedLeave.jenis === "sakit"
               ? "Izin Sakit"
               : "Izin";
+          const memberDivisiName =
+            member.divisi_nama ||
+            member["divisi (bantu)"] ||
+            (member.divisi_id ? divisiMap.get(member.divisi_id) : null) ||
+            "Umum";
+
           memberRows.push({
             id: `leave-${member.id}-${dateStr}`,
             nik_karyawan: member.nik_karyawan,
             nama: member.nama_lengkap,
-            divisi: member.divisi_nama || member["divisi (bantu)"] || "Penjualan",
+            divisi: memberDivisiName,
             divisi_id: member.divisi_id,
             tanggal: dateStr,
             masuk: "-",
@@ -335,11 +360,17 @@ export default function AttendanceCalendarView({
           // Hari libur / weekend tidak dihitung alpa
           if (!isWeekend && !isHoliday && dateStr <= TODAY_STR) {
             countAlpa++;
+            const memberDivisiName =
+              member.divisi_nama ||
+              member["divisi (bantu)"] ||
+              (member.divisi_id ? divisiMap.get(member.divisi_id) : null) ||
+              "Umum";
+
             memberRows.push({
               id: `alpa-${member.id}-${dateStr}`,
               nik_karyawan: member.nik_karyawan,
               nama: member.nama_lengkap,
-              divisi: member.divisi_nama || member["divisi (bantu)"] || "Penjualan",
+              divisi: memberDivisiName,
               divisi_id: member.divisi_id,
               tanggal: dateStr,
               masuk: "-",

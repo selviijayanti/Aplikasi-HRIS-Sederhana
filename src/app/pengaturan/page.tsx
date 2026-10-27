@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth/auth-context";
 import { fetchEmployeesFromFirestore } from "@/lib/firebase/employee-service";
@@ -36,10 +37,49 @@ function resolveSeedEmployeeName(karyawanId: string, fallback?: string): string 
   return "Karyawan";
 }
 
+// Helper Format Tanggal & Jam WIB Presisi untuk Audit Log (PRD BR-12)
+function formatAuditLogWIB(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr.replace("T", " ").slice(0, 19);
+    const parts = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+    return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+  } catch {
+    return dateStr.replace("T", " ").slice(0, 19);
+  }
+}
+
+// Helper: normalisasi ID audit log ke string agar deduplication Map bekerja lintas tipe (number/string)
+function normalizeAuditId(item: any, index?: number): string {
+  if (item.id !== undefined && item.id !== null) return String(item.id);
+  // Fallback: buat key unik dari kombinasi field agar tidak bertabrakan
+  return `seed-${item.pelaku_id || ""}-${item.dibuat_pada || ""}-${index ?? 0}`;
+}
+
 export default function PengaturanPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<"divisi" | "libur" | "kuota" | "audit">("divisi");
   const [filterAksi, setFilterAksi] = useState("Semua");
+  const [filterTanggal, setFilterTanggal] = useState("");
+
+  useEffect(() => {
+    if (!loading && user && user.peran?.toLowerCase() !== "hrd") {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, router]);
 
   // State Karyawan keseluruhan dari master profiles
   const [allEmployees, setAllEmployees] = useState<any[]>(() => {
@@ -163,16 +203,74 @@ export default function PengaturanPage() {
         if (stored) {
           const parsed = JSON.parse(stored);
           const map = new Map<string, any>();
-          parsed.forEach((item: any) => map.set(item.id, item));
-          (auditLogData as Array<any>).forEach((item: any) => {
-            if (!map.has(item.id)) map.set(item.id, item);
+          // Seed data dimasukkan dulu sebagai basis (dengan ID dinormalisasi ke string)
+          (auditLogData as Array<any>).forEach((item: any, i: number) => {
+            const key = normalizeAuditId(item, i);
+            map.set(key, { ...item, id: key });
+          });
+          // localStorage override/menambah entry baru di atasnya
+          parsed.forEach((item: any, i: number) => {
+            const key = normalizeAuditId(item, i);
+            map.set(key, { ...item, id: key });
           });
           return Array.from(map.values());
         }
       } catch (e) {}
     }
-    return auditLogData as Array<any>;
+    // Normalisasi seed data saat tidak ada localStorage
+    return (auditLogData as Array<any>).map((item: any, i: number) => ({
+      ...item,
+      id: normalizeAuditId(item, i),
+    }));
   });
+
+  // Sinkronisasi otomatis log audit dari localStorage & Firestore
+  useEffect(() => {
+    const syncAuditLogs = () => {
+      try {
+        const stored = localStorage.getItem("karsahr_audit_log_store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const map = new Map<string, any>();
+          (auditLogData as Array<any>).forEach((item: any, i: number) => {
+            const key = normalizeAuditId(item, i);
+            map.set(key, { ...item, id: key });
+          });
+          parsed.forEach((item: any, i: number) => {
+            const key = normalizeAuditId(item, i);
+            map.set(key, { ...item, id: key });
+          });
+          setAuditLogList(Array.from(map.values()));
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener("storage", syncAuditLogs);
+
+    getDocs(collection(db, "audit_log"))
+      .then((snap) => {
+        if (!snap.empty) {
+          const remoteLogs: any[] = [];
+          snap.forEach((d) => remoteLogs.push({ ...d.data(), id: String(d.id) }));
+          setAuditLogList((prev) => {
+            const map = new Map<string, any>();
+            // Gunakan prev sebagai basis, lalu Firestore meng-override
+            prev.forEach((item) => {
+              const key = String(item.id);
+              map.set(key, { ...item, id: key });
+            });
+            remoteLogs.forEach((item) => {
+              const key = String(item.id);
+              map.set(key, { ...item, id: key });
+            });
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => window.removeEventListener("storage", syncAuditLogs);
+  }, []);
 
   // Inisialisasi data divisi & profil karyawan
   useEffect(() => {
@@ -903,12 +1001,88 @@ export default function PengaturanPage() {
     }
   };
 
-  const filteredAudit = auditLogList.filter((log) => {
-    if (filterAksi !== "Semua" && !log.aksi?.toLowerCase().includes(filterAksi.toLowerCase())) {
-      return false;
+  const formatAksiLabel = (aksi: string) => {
+    switch (aksi) {
+      case "pengajuan_cuti":
+        return "Pengajuan Cuti";
+      case "persetujuan_cuti_tahap1":
+        return "Persetujuan Atasan (Tahap 1)";
+      case "persetujuan_cuti_final":
+        return "Persetujuan HRD (Final)";
+      case "penolakan_cuti":
+        return "Penolakan Cuti";
+      case "pembatalan_cuti":
+        return "Pembatalan Cuti";
+      case "terbitkan_slip_gaji":
+      case "slip_update":
+        return "Penerbitan Slip Gaji";
+      case "cuti_update":
+        return "Pembaruan Cuti";
+      case "kuota_update":
+        return "Pembaruan Kuota Cuti";
+      case "INSERT":
+        return "Tambah Divisi/Data";
+      case "UPDATE":
+        return "Ubah Divisi/Data";
+      case "DELETE":
+        return "Hapus Data";
+      default:
+        return aksi;
     }
-    return true;
-  });
+  };
+
+  const getAksiBadgeStyle = (aksi: string): { bg: string; color: string; border: string } => {
+    const a = (aksi || "").toLowerCase();
+    if (a.includes("tolak") || a.includes("batal") || a === "delete") {
+      return { bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" };
+    }
+    if (a.includes("setuju") || a.includes("terbit")) {
+      return { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0" };
+    }
+    if (a.includes("pengajuan") || a.includes("insert")) {
+      return { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" };
+    }
+    return { bg: "#f8fafc", color: "#334155", border: "#cbd5e1" };
+  };
+
+  const filteredAudit = useMemo(() => {
+    return auditLogList
+      .filter((log) => {
+        if (filterTanggal) {
+          const rawDate = log.dibuat_pada || "";
+          const dateOnly = rawDate.includes("T") ? rawDate.split("T")[0] : rawDate.split(" ")[0];
+          if (dateOnly !== filterTanggal) return false;
+        }
+
+        if (filterAksi === "Semua") return true;
+        const aksi = (log.aksi || "").toLowerCase();
+        if (filterAksi === "cuti") {
+          return aksi.includes("cuti");
+        }
+        if (filterAksi === "persetujuan") {
+          return aksi.includes("persetujuan") || aksi.includes("disetujui");
+        }
+        if (filterAksi === "penolakan") {
+          return aksi.includes("penolakan") || aksi.includes("pembatalan") || aksi.includes("ditolak") || aksi.includes("dibatalkan");
+        }
+        if (filterAksi === "slip") {
+          return aksi.includes("slip") || aksi.includes("terbit");
+        }
+        if (filterAksi === "kuota") {
+          return aksi.includes("kuota");
+        }
+        return aksi.includes(filterAksi.toLowerCase());
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.dibuat_pada || 0).getTime();
+        const timeB = new Date(b.dibuat_pada || 0).getTime();
+        return timeB - timeA;
+      });
+  }, [auditLogList, filterAksi, filterTanggal]);
+
+  if (loading || !user || user.peran?.toLowerCase() !== "hrd") {
+    return null;
+  }
 
   return (
     <div className="pengaturan-page-wrap">
@@ -1367,19 +1541,43 @@ export default function PengaturanPage() {
         <div className="ui-card">
           <div className="tab-header">
             <h3 className="section-title">Audit Log Aktivitas Sistem</h3>
-            <div className="filter-audit">
-              <label className="lbl-mini">Filter Aksi:</label>
-              <select
-                value={filterAksi}
-                onChange={(e) => setFilterAksi(e.target.value)}
-                className="select-mini"
-              >
-                <option value="Semua">Semua Aksi</option>
-                <option value="buat">Pembuatan Data</option>
-                <option value="ubah">Perubahan Status / Data</option>
-                <option value="koreksi">Koreksi Absensi</option>
-                <option value="terbit">Penerbitan Slip</option>
-              </select>
+            <div className="filter-audit" style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <label className="lbl-mini">Filter Tanggal:</label>
+                <input
+                  type="date"
+                  value={filterTanggal}
+                  onChange={(e) => setFilterTanggal(e.target.value)}
+                  className="select-mini"
+                  style={{ minWidth: "140px", cursor: "pointer" }}
+                />
+                {filterTanggal && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTanggal("")}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.85rem", fontWeight: 700 }}
+                    title="Hapus filter tanggal"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <label className="lbl-mini">Filter Aksi:</label>
+                <select
+                  value={filterAksi}
+                  onChange={(e) => setFilterAksi(e.target.value)}
+                  className="select-mini"
+                >
+                  <option value="Semua">Semua Aksi</option>
+                  <option value="cuti">Pengajuan &amp; Proses Cuti</option>
+                  <option value="persetujuan">Persetujuan Cuti</option>
+                  <option value="penolakan">Penolakan &amp; Pembatalan Cuti</option>
+                  <option value="slip">Penerbitan Slip Gaji</option>
+                  <option value="kuota">Pembaruan Kuota Cuti</option>
+                  <option value="ubah">Perubahan Data Sistem</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1391,19 +1589,75 @@ export default function PengaturanPage() {
                   <th>PELAKU</th>
                   <th>AKSI</th>
                   <th>TABEL TERKAIT</th>
+                  <th>NILAI SEBELUM</th>
+                  <th>NILAI SESUDAH</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredAudit.map((log, idx) => (
-                  <tr key={idx}>
-                    <td className="font-mono">{log.dibuat_pada?.replace("T", " ")?.slice(0, 19) || "-"}</td>
-                    <td className="font-semibold">{log["pelaku (bantu)"] || "HRD / Sistem"}</td>
-                    <td>
-                      <span className="badge-aksi">{log.aksi}</span>
+                {filteredAudit.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
+                      Tidak ada rekaman audit log untuk filter yang dipilih.
                     </td>
-                    <td><span className="font-mono text-muted">{log.nama_tabel}</span></td>
                   </tr>
-                ))}
+                ) : (
+                  filteredAudit.map((log, idx) => {
+                    const style = getAksiBadgeStyle(log.aksi);
+                    const rawSebelum = log.nilai_sebelum;
+                    const rawSesudah = log.nilai_sesudah;
+                    const textSebelum =
+                      typeof rawSebelum === "object" && rawSebelum !== null
+                        ? JSON.stringify(rawSebelum)
+                        : rawSebelum ? String(rawSebelum) : null;
+                    const textSesudah =
+                      typeof rawSesudah === "object" && rawSesudah !== null
+                        ? JSON.stringify(rawSesudah)
+                        : rawSesudah ? String(rawSesudah) : null;
+
+                    return (
+                      <tr key={`audit-row-${String(log.id)}-${idx}`}>
+                        <td className="font-mono text-xs">{formatAuditLogWIB(log.dibuat_pada)}</td>
+                        <td className="font-semibold text-xs">{log["pelaku (bantu)"] || log.pelaku_id || "HRD / Sistem"}</td>
+                        <td>
+                          <span
+                            className="badge-aksi"
+                            style={{
+                              backgroundColor: style.bg,
+                              color: style.color,
+                              border: `1px solid ${style.border}`,
+                              padding: "0.2rem 0.5rem",
+                              borderRadius: "4px",
+                              fontWeight: 600,
+                              fontSize: "0.72rem",
+                              display: "inline-block",
+                            }}
+                          >
+                            {formatAksiLabel(log.aksi)}
+                          </span>
+                        </td>
+                        <td><span className="font-mono text-muted text-xs">{log.nama_tabel}</span></td>
+                        <td className="text-xs" style={{ maxWidth: "200px" }}>
+                          {textSebelum ? (
+                            <span className="font-mono text-slate-600" title={textSebelum}>
+                              {textSebelum.length > 45 ? `${textSebelum.slice(0, 45)}...` : textSebelum}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">-</span>
+                          )}
+                        </td>
+                        <td className="text-xs" style={{ maxWidth: "220px" }}>
+                          {textSesudah ? (
+                            <span className="font-mono text-slate-800" style={{ fontWeight: 500 }} title={textSesudah}>
+                              {textSesudah.length > 50 ? `${textSesudah.slice(0, 50)}...` : textSesudah}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

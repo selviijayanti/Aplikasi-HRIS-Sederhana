@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import profilesData from "../../../../data/seeds/profiles.json";
 import pengajuanCutiSeedData from "../../../../data/seeds/pengajuan_cuti.json";
 import kuotaCutiData from "../../../../data/seeds/kuota_cuti.json";
-import { getSubmittedLeaves, getLeaveStatusOverrides } from "@/lib/utils/leave-store";
+import { getSubmittedLeaves, getLeaveStatusOverrides, calculateAccurateLeaveQuota } from "@/lib/utils/leave-store";
 import { getRawAttendanceStore } from "@/lib/firebase/attendance-service";
 import { submitLeaveRequestToFirestore, cancelLeaveRequestInFirestore } from "@/lib/firebase/leave-service";
 
@@ -147,42 +147,27 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Validasi PRD BR-06: Sisa kuota cuti tahunan tidak boleh minus
+    const clientOverrides = payload.statusOverrides || undefined;
+    const clientSubmitted = payload.submittedLeaves || undefined;
+
+    // 4. Validasi PRD BR-06: Sisa kuota cuti tahunan tidak boleh minus
     if (jenis === "cuti_tahunan") {
-      const qRec = (kuotaCutiData as Array<any>).find((k) => {
-        if (k.tahun !== 2026) return false;
-        return (
-          k.karyawan_id === userId ||
-          (userProfile && k.karyawan_id === userProfile.id) ||
-          (effectiveName && k["nama (bantu)"]?.toLowerCase() === effectiveName.toLowerCase())
-        );
-      });
+      const quota = calculateAccurateLeaveQuota(
+        {
+          id: userId,
+          seed_id: userProfile?.id,
+          nik_karyawan: effectiveNik,
+          nama_lengkap: effectiveName,
+        },
+        2026,
+        clientOverrides,
+        clientSubmitted
+      );
 
-      const totalJatah = qRec?.jatah_hari ?? 12;
-      let usedDays = qRec?.terpakai_hari ?? 0;
-
-      // Hitung pengajuan cuti tahunan aktif yang sudah tersimpan
-      const submitted = getSubmittedLeaves();
-      const overridesNow = getLeaveStatusOverrides();
-      submitted.forEach((l) => {
-        const isOwner =
-          l.karyawan_id === userId ||
-          (effectiveNik && l.nik_karyawan === effectiveNik) ||
-          (effectiveName && l.nama_karyawan?.toLowerCase() === effectiveName.toLowerCase());
-        if (isOwner && l.jenis === "cuti_tahunan") {
-          const currentStatus = overridesNow[l.id]?.status || l.status || "diajukan";
-          if (currentStatus === "diajukan" || currentStatus === "disetujui_atasan" || currentStatus === "disetujui") {
-            if (!l.id.startsWith("cuti-0")) {
-              usedDays += l.jumlah_hari || 1;
-            }
-          }
-        }
-      });
-
-      const remainingQuota = Math.max(0, totalJatah - usedDays);
-      if (jumlahHari > remainingQuota) {
+      if (jumlahHari > quota.sisa) {
         return NextResponse.json(
           {
-            error: `Jumlah hari cuti (${jumlahHari} hari) melebihi sisa kuota cuti tahunan Anda (sisa ${remainingQuota} hari). Sisa kuota tidak boleh minus (PRD BR-06).`,
+            error: `Pengajuan cuti tahunan (${jumlahHari} hari kerja) melebihi sisa kuota yang tersedia (${quota.sisa} hari kerja). Sesuai kebijakan perusahaan, pengajuan dibatasi agar saldo kuota tidak bernilai negatif.`,
           },
           { status: 400 }
         );
@@ -190,9 +175,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Validasi PRD BR-07: Irisan tanggal dengan pengajuan aktif lainnya
-    const overrides = getLeaveStatusOverrides();
+    const overrides = clientOverrides || getLeaveStatusOverrides();
     const allLeaves = [
-      ...getSubmittedLeaves(),
+      ...(clientSubmitted || getSubmittedLeaves()),
       ...(pengajuanCutiSeedData as Array<any>).map((p) => ({
         id: p.id,
         karyawan_id: p.karyawan_id,
